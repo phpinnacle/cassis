@@ -9,6 +9,9 @@
 This library is a pure asynchronous PHP implementation of the Cassandra V4 binary protocol.
 It utilize [amphp](https://amphp.org) framework for async operations.
 
+## UNDER DEVELOPMENT
+## NOT READY FOR PRODUCTION
+
 ## Install
 
 Via Composer
