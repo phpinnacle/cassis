@@ -12,30 +12,30 @@ namespace PHPinnacle\Cassis;
 
 final class Metadata
 {
-    private const
+    const
         FLAG_GLOBAL_TABLES_SPEC = 0x0001,
         FLAG_HAS_MORE_PAGES     = 0x0002,
         FLAG_NO_METADATA        = 0x0004
     ;
-
-    /**
-     * @var string
-     */
-    private $paging;
-
+    
     /**
      * @var array
      */
     private $columns;
 
     /**
-     * @param string   $paging
-     * @param Column[] $columns
+     * @var string
      */
-    public function __construct(string $paging = null, array $columns = [])
+    private $cursor;
+
+    /**
+     * @param Column[] $columns
+     * @param string   $cursor
+     */
+    public function __construct(array $columns, string $cursor = null)
     {
-        $this->paging  = $paging;
         $this->columns = $columns;
+        $this->cursor  = $cursor;
     }
 
     /**
@@ -45,53 +45,42 @@ final class Metadata
      */
     public static function create(Buffer $buffer): self
     {
-        $flags = $buffer->consumeInt();
-        $count = $buffer->consumeInt();
-
-        $paging   = null;
-        $keyspace = null;
-        $table    = null;
-        $columns  = [];
+        $flags  = $buffer->consumeInt();
+        $count  = $buffer->consumeInt();
+        $cursor = null;
 
         if ($flags & self::FLAG_HAS_MORE_PAGES) {
-            $paging = $buffer->consumeBytes();
+            $cursor = $buffer->consumeLongString();
         }
 
         if ($flags & self::FLAG_NO_METADATA) {
-            return new self($paging);
+            return new self([], $cursor);
         }
+
+        $columns = [];
 
         if ($flags & self::FLAG_GLOBAL_TABLES_SPEC) {
             $keyspace = $buffer->consumeString();
             $table    = $buffer->consumeString();
 
             for ($i = 0; $i < $count; ++$i) {
-                $columns[] = new Column(
-                    $keyspace,
-                    $table,
-                    $buffer->consumeString(),
-                    $buffer->consumeType());
+                $columns[] = Column::partial($keyspace, $table, $buffer);
             }
         } else {
             for ($i = 0; $i < $count; ++$i) {
-                $columns[] = new Column(
-                    $buffer->consumeString(),
-                    $buffer->consumeString(),
-                    $buffer->consumeString(),
-                    $buffer->consumeType()
-                );
+                $columns[] = Column::full($buffer);
             }
         }
 
-        return new self($paging, $columns);
+        return new self($columns, $cursor);
     }
 
     /**
      * @return string
      */
-    public function paging(): ?string
+    public function cursor(): ?string
     {
-        return $this->paging;
+        return $this->cursor;
     }
 
     /**

@@ -47,6 +47,33 @@ final class Column
     }
 
     /**
+     * @param Buffer $buffer
+     *
+     * @return self
+     */
+    public static function full(Buffer $buffer): self
+    {
+        return new self(
+            $buffer->consumeString(),
+            $buffer->consumeString(),
+            $buffer->consumeString(),
+            $buffer->consumeType()
+        );
+    }
+
+    /**
+     * @param string $keyspace
+     * @param string $table
+     * @param Buffer $buffer
+     *
+     * @return self
+     */
+    public static function partial(string $keyspace, string $table, Buffer $buffer): self
+    {
+        return new self($keyspace, $table, $buffer->consumeString(), $buffer->consumeType());
+    }
+
+    /**
      * @return string
      */
     public function keyspace(): string
@@ -76,5 +103,15 @@ final class Column
     public function type(): Type
     {
         return $this->type;
+    }
+
+    /**
+     * @param Buffer $buffer
+     *
+     * @return mixed
+     */
+    public function value(Buffer $buffer)
+    {
+        return $this->type->read($buffer);
     }
 }

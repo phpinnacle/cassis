@@ -12,6 +12,7 @@ declare(strict_types = 1);
 
 namespace PHPinnacle\Cassis\Result;
 
+use PHPinnacle\Cassis\Buffer;
 use PHPinnacle\Cassis\Response;
 use PHPinnacle\Cassis\Result;
 
@@ -51,10 +52,12 @@ final class SchemaChange implements Result
      */
     public static function create(Response\Result $frame): self
     {
+        $buffer = new Buffer($frame->data);
+
         return new self(
-            $frame->data->consumeString(),
-            $frame->data->consumeString(),
-            $frame->data->consumeString()
+            $buffer->consumeString(),
+            $buffer->consumeString(),
+            $buffer->consumeString()
         );
     }
 

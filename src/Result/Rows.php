@@ -12,11 +12,13 @@ declare(strict_types = 1);
 
 namespace PHPinnacle\Cassis\Result;
 
+use PHPinnacle\Cassis\Buffer;
+use PHPinnacle\Cassis\Column;
 use PHPinnacle\Cassis\Metadata;
 use PHPinnacle\Cassis\Response;
 use PHPinnacle\Cassis\Result;
 
-final class Rows implements Result, \IteratorAggregate, \Countable
+final class Rows implements Result, \Iterator, \Countable, \ArrayAccess
 {
     /**
      * @var \SplFixedArray
@@ -24,11 +26,18 @@ final class Rows implements Result, \IteratorAggregate, \Countable
     public $data;
 
     /**
-     * @param \SplFixedArray $data
+     * @var Metadata
      */
-    public function __construct(\SplFixedArray $data)
+    private $meta;
+    
+    /**
+     * @param \SplFixedArray $data
+     * @param Metadata       $meta
+     */
+    public function __construct(\SplFixedArray $data, Metadata $meta)
     {
         $this->data = $data;
+        $this->meta = $meta;
     }
 
     /**
@@ -38,8 +47,8 @@ final class Rows implements Result, \IteratorAggregate, \Countable
      */
     public static function create(Response\Result $frame): self
     {
-        $buffer   = $frame->data;
-        $metadata = Metadata::create($buffer);
+        $buffer = new Buffer($frame->data);
+        $meta   = Metadata::create($buffer);
 
         $count = $buffer->consumeInt();
         $rows  = new \SplFixedArray($count);
@@ -47,22 +56,54 @@ final class Rows implements Result, \IteratorAggregate, \Countable
         for ($i = 0; $i < $count; ++$i) {
             $data = [];
 
-            foreach ($metadata->columns() as $column) {
-                $data[$column->name()] = $buffer->consumeValue($column->type());
+            foreach ($meta->columns() as $column) {
+                $data[$column->name()] = $column->value($buffer);
             }
 
             $rows[$i] = $data;
         }
 
-        return new self($rows);
+        return new self($rows, $meta);
     }
 
     /**
      * {@inheritdoc}
      */
-    public function getIterator()
+    public function current()
     {
-        return $this->data;
+        return $this->data->current();
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function next()
+    {
+        $this->data->next();
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function key()
+    {
+        return $this->data->key();
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function valid()
+    {
+        return $this->data->valid();
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function rewind()
+    {
+        $this->data->rewind();
     }
 
     /**
@@ -71,5 +112,61 @@ final class Rows implements Result, \IteratorAggregate, \Countable
     public function count()
     {
         return $this->data->count();
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function offsetExists($offset)
+    {
+        return $this->data->offsetExists($offset);
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function offsetGet($offset)
+    {
+        return $this->data->offsetGet($offset);
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function offsetSet($offset, $value)
+    {
+        throw new \BadMethodCallException('Rows result are immutable.');
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function offsetUnset($offset)
+    {
+        throw new \BadMethodCallException('Rows result are immutable.');
+    }
+
+    /**
+     * @return Metadata
+     */
+    public function meta(): Metadata
+    {
+        return $this->meta;
+    }
+
+    /**
+     * @return string|null
+     */
+    public function cursor(): ?string
+    {
+        return $this->meta->cursor();
+    }
+
+    /**
+     * @return Column[]
+     */
+    public function columns(): array
+    {
+        return $this->meta->columns();
     }
 }

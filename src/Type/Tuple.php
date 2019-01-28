@@ -10,7 +10,9 @@
 
 namespace PHPinnacle\Cassis\Type;
 
+use PHPinnacle\Cassis\Buffer;
 use PHPinnacle\Cassis\Type;
+use PHPinnacle\Cassis\Value;
 
 final class Tuple implements Type
 {
@@ -28,18 +30,16 @@ final class Tuple implements Type
     }
 
     /**
-     * @return int
+     * {@inheritdoc}
      */
-    public function code(): int
+    public function read(Buffer $buffer): Value
     {
-        return self::TUPLE;
-    }
+        $values = [];
 
-    /**
-     * @return Type[]
-     */
-    public function definitions(): array
-    {
-        return $this->definitions;
+        foreach ($this->definitions as $key => $type) {
+            $value[$key] = $type->read($buffer);
+        }
+
+        return new Value\Tuple($values);
     }
 }

@@ -10,7 +10,9 @@
 
 namespace PHPinnacle\Cassis\Type;
 
+use PHPinnacle\Cassis\Buffer;
 use PHPinnacle\Cassis\Type;
+use PHPinnacle\Cassis\Value;
 
 final class UserDefined implements Type
 {
@@ -42,11 +44,18 @@ final class UserDefined implements Type
     }
 
     /**
-     * @return int
+     * {@inheritdoc}
      */
-    public function code(): int
+    public function read(Buffer $buffer): Value
     {
-        return self::UDT;
+        $values = [];
+        $slice  = $buffer->slice($buffer->consumeInt());
+
+        foreach ($this->definitions as $key => $type) {
+            $values[$key] = $type->read($slice);
+        }
+
+        return new Value\UserDefined($values);
     }
 
     /**
@@ -63,13 +72,5 @@ final class UserDefined implements Type
     public function name(): string
     {
         return $this->name;
-    }
-
-    /**
-     * @return Type[]
-     */
-    public function definitions(): array
-    {
-        return $this->definitions;
     }
 }

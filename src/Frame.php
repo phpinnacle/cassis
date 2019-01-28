@@ -22,6 +22,13 @@ abstract class Frame
     ;
 
     const
+        FLAG_COMPRESSION = 0x01,
+        FLAG_TRACING     = 0x02,
+        FLAG_PAYLOAD     = 0x04,
+        FLAG_WARNING     = 0x08
+    ;
+
+    const
         OPCODE_ERROR          = 0x00,
         OPCODE_STARTUP        = 0x01,
         OPCODE_READY          = 0x02,
@@ -46,9 +53,9 @@ abstract class Frame
     public $type;
 
     /**
-     * @var array
+     * @var int
      */
-    public $flags = [];
+    public $flags = 0;
 
     /**
      * @var int
@@ -59,41 +66,4 @@ abstract class Frame
      * @var int
      */
     public $opcode;
-
-    /**
-     * @var string
-     */
-    public $body = '';
-
-    /**
-     * @return Buffer
-     */
-    public function pack(): Buffer
-    {
-        $buffer = new Buffer;
-        $buffer
-            ->appendByte($this->type)
-            ->appendByte($this->convertFlags())
-            ->appendShort($this->stream)
-            ->appendByte($this->opcode)
-            ->appendLongString($this->body)
-        ;
-
-        return $buffer;
-    }
-
-    /**
-     * @return int
-     */
-    private function convertFlags(): int
-    {
-        $value = 0;
-
-        foreach ($this->flags as $n => $bit) {
-            $bit = $bit ? 1 : 0;
-            $value |= $bit << $n;
-        }
-
-        return $value;
-    }
 }

@@ -13,30 +13,40 @@ declare(strict_types = 1);
 namespace PHPinnacle\Cassis\Request;
 
 use PHPinnacle\Cassis\Buffer;
-use PHPinnacle\Cassis\Frame;
 use PHPinnacle\Cassis\Context;
+use PHPinnacle\Cassis\Request;
 
-class Query extends Frame
+final class Query extends Request
 {
     public $opcode = self::OPCODE_QUERY;
-    public $type = self::REQUEST;
-
+    
     /**
-     * @param int     $stream
+     * @var string
+     */
+    public $cql;
+    
+    /**
+     * @var Context
+     */
+    public $context;
+    
+    /**
      * @param string  $cql
-     * @param array   $values
      * @param Context $context
      */
-    public function __construct(int $stream, string $cql, array $values, Context $context)
+    public function __construct(string $cql, Context $context)
     {
-        if (!empty($values)) {
-            $context->withValues($values);
-        }
+        $this->cql     = $cql;
+        $this->context = $context;
+    }
+    
+    /**
+     * {@inheritdoc}
+     */
+    public function write(Buffer $buffer): void
+    {
+        $buffer->appendLongString($this->cql);
 
-        $buffer = new Buffer;
-        $buffer->appendLongString($cql);
-
-        $this->stream = $stream;
-        $this->body   = $context->queryParameters($buffer);
+        $this->context->writeParameters($buffer);
     }
 }

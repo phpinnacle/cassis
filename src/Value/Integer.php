@@ -31,7 +31,7 @@ final class Integer implements Value
      * @param int $value
      * @param int $size
      */
-    public function __construct(int $value, int $size = 4)
+    private function __construct(int $value, int $size = 4)
     {
         $this->value = $value;
         $this->size  = $size;
@@ -55,6 +55,16 @@ final class Integer implements Value
     public static function small(int $value): self
     {
         return new self($value, 2);
+    }
+
+    /**
+     * @param int $value
+     *
+     * @return self
+     */
+    public static function int(int $value): self
+    {
+        return new self($value, 4);
     }
 
     /**

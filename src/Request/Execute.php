@@ -14,29 +14,39 @@ namespace PHPinnacle\Cassis\Request;
 
 use PHPinnacle\Cassis\Buffer;
 use PHPinnacle\Cassis\Context;
-use PHPinnacle\Cassis\Frame;
+use PHPinnacle\Cassis\Request;
 
-class Execute extends Frame
+final class Execute extends Request
 {
     public $opcode = self::OPCODE_EXECUTE;
-    public $type = self::REQUEST;
 
     /**
-     * @param int     $stream
+     * @var string
+     */
+    public $id;
+    
+    /**
+     * @var Context
+     */
+    public $context;
+    
+    /**
      * @param string  $id
-     * @param array   $values
      * @param Context $context
      */
-    public function __construct(int $stream, string $id, array $values, Context $context)
+    public function __construct(string $id, Context $context)
     {
-        if (!empty($values)) {
-            $context->withValues($values);
-        }
+        $this->id      = $id;
+        $this->context = $context;
+    }
 
-        $buffer = new Buffer;
-        $buffer->appendString($id);
-
-        $this->stream = $stream;
-        $this->body   = $context->queryParameters($buffer);
+    /**
+     * {@inheritdoc}
+     */
+    public function write(Buffer $buffer): void
+    {
+        $buffer->appendString($this->id);
+        
+        $this->context->writeParameters($buffer);
     }
 }

@@ -12,13 +12,11 @@ declare(strict_types = 1);
 
 namespace PHPinnacle\Cassis\Response;
 
-use PHPinnacle\Cassis\Buffer;
-use PHPinnacle\Cassis\Frame;
+use PHPinnacle\Cassis\Response;
 
-class Result extends Frame
+final class Result extends Response
 {
     public $opcode = self::OPCODE_RESULT;
-    public $type = self::RESPONSE;
 
     /**
      * @var int
@@ -26,15 +24,15 @@ class Result extends Frame
     public $kind;
 
     /**
-     * @var Buffer
+     * @var string
      */
     public $data;
 
     /**
      * @param int    $kind
-     * @param Buffer $data
+     * @param string $data
      */
-    public function __construct(int $kind, Buffer $data)
+    public function __construct(int $kind, string $data)
     {
         $this->kind = $kind;
         $this->data = $data;

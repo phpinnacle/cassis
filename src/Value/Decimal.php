@@ -18,24 +18,61 @@ use PHPinnacle\Cassis\Value;
 final class Decimal implements Value
 {
     /**
-     * @var float
+     * @var \GMP
      */
     private $value;
 
     /**
-     * @param float $value
+     * @var int
      */
-    public function __construct(float $value)
+    private $scale;
+    
+    /**
+     * @param \GMP $value
+     * @param int  $scale
+     */
+    public function __construct(\GMP $value, int $scale)
     {
         $this->value = $value;
+        $this->scale = $scale;
     }
 
     /**
-     * @return float
+     * @param string $value
+     * @param int    $scale
+     *
+     * @return self
      */
-    public function value(): float
+    public static function fromString(string $value, int $scale): self
     {
-        return $this->value;
+        return new self(bigint_init($value), $scale);
+    }
+
+    /**
+     * @param string $bytes
+     * @param int    $scale
+     *
+     * @return self
+     */
+    public static function fromBytes(string $bytes, int $scale): self
+    {
+        return new self(bigint_import($bytes), $scale);
+    }
+
+    /**
+     * @return string
+     */
+    public function value(): string
+    {
+        return \gmp_strval($this->value);
+    }
+    
+    /**
+     * @return int
+     */
+    public function scale(): int
+    {
+        return $this->scale;
     }
 
     /**
@@ -43,27 +80,35 @@ final class Decimal implements Value
      */
     public function write(Buffer $buffer): void
     {
-        $pos    = \strpos($this->value, '.');
-        $scale  = $pos === false ? 0 : \strlen($this->value) - $pos - 1;
-        $value = (($this->value * \pow(10, $scale)) & 0xffffffff00000000) >> 32;
+        $binary = \gmp_export($this->value);
 
         $buffer
-            ->appendInt(8)
-            ->appendUint($scale)
-            ->appendUint($value)
+            ->appendInt(4 + \strlen($binary))
+            ->appendUint($this->scale)
+            ->append($binary)
         ;
     }
-
+    
     /**
-     * @param Buffer $buffer
-     *
-     * @return self
+     * @return string
      */
-    public static function read(Buffer $buffer): self
+    public function __toString(): string
     {
-        $scale = $buffer->consumeUint();
-        $value = $buffer->consumeUint();
+        $sign   = '';
+        $value  = \gmp_strval($this->value);
+        $length = \strlen($value);
 
-        return new self((float) \substr_replace($value, '.', -1 * $scale, 0));
+        if ($value[0] === '-') {
+            $sign  = '-';
+            $value = \substr($value, 1);
+
+            --$length;
+        }
+
+        if ($length <= $this->scale) {
+            $value = \str_pad($value, $this->scale + 1, '0', \STR_PAD_LEFT);
+        }
+
+        return $sign . ($this->scale > 0 ? \substr_replace($value, '.', $this->scale * -1, 0) : $value);
     }
 }

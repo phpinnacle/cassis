@@ -48,14 +48,4 @@ final class Counter implements Value
             ->appendLong($this->value)
         ;
     }
-
-    /**
-     * @param Buffer $buffer
-     *
-     * @return self
-     */
-    public static function read(Buffer $buffer): self
-    {
-        return new self($buffer->consumeLong());
-    }
 }

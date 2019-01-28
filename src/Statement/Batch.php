@@ -14,7 +14,7 @@ use PHPinnacle\Cassis\Statement;
 
 final class Batch implements Statement
 {
-    const
+    private const
         TYPE_LOGGED   = 0,
         TYPE_UNLOGGED = 1,
         TYPE_COUNTER  = 2
@@ -31,13 +31,43 @@ final class Batch implements Statement
     private $queries;
 
     /**
-     * @param int          $type
-     * @param Statement ...$queries
+     * @param int         $type
+     * @param Statement[] $queries
      */
-    public function __construct(int $type, Statement ...$queries)
+    private function __construct(int $type, array $queries)
     {
         $this->type    = $type;
         $this->queries = $queries;
+    }
+
+    /**
+     * @param Statement ...$queries
+     *
+     * @return Batch
+     */
+    public static function logged(Statement ...$queries): self
+    {
+        return new self(self::TYPE_LOGGED, $queries);
+    }
+
+    /**
+     * @param Statement ...$queries
+     *
+     * @return Batch
+     */
+    public static function unlogged(Statement ...$queries): self
+    {
+        return new self(self::TYPE_UNLOGGED, $queries);
+    }
+
+    /**
+     * @param Statement ...$queries
+     *
+     * @return Batch
+     */
+    public static function counter(Statement ...$queries): self
+    {
+        return new self(self::TYPE_COUNTER, $queries);
     }
 
     /**

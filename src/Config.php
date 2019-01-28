@@ -15,37 +15,23 @@ namespace PHPinnacle\Cassis;
 final class Config
 {
     private const
-        DEFAULT_HOST     = 'localhost',
-        DEFAULT_PORT     = 9042,
-        DEFAULT_KEYSPACE = null,
-        DEFAULT_USER     = null,
-        DEFAULT_PASS     = null
+        DEFAULT_SCHEME = 'tcp',
+        DEFAULT_HOST   = 'localhost',
+        DEFAULT_PORT   = 9042
     ;
 
-    private const OPTIONS = [
-        'compression'   => null,
-        'compatibility' => false,
-        'tcp_timeout'   => 1000,
-        'tcp_nodelay'   => false,
-        'tcp_attempts'  => 2,
-    ];
-
-    private const
+    private const CQL_VERSION = '3.0.0';
+    
+    const
+        COMPRESSION_NONE   = 'none',
         COMPRESSION_LZ4    = 'lz4',
         COMPRESSION_SNAPPY = 'snappy'
     ;
 
-    private const CQL_VERSION = '3.0.0';
-
     /**
-     * @var string
+     * @var string[]
      */
-    private $host;
-
-    /**
-     * @var int
-     */
-    private $port;
+    private $hosts;
 
     /**
      * @var string
@@ -58,14 +44,9 @@ final class Config
     private $pass;
 
     /**
-     * @var string
-     */
-    private $keyspace;
-
-    /**
      * @var int
      */
-    private $tcpTimeout = 1;
+    private $tcpTimeout = 0;
 
     /**
      * @var bool
@@ -75,32 +56,28 @@ final class Config
     /**
      * @var int
      */
-    private $tcpAttempts = 2;
+    private $tcpAttempts = 1;
 
     /**
      * @var string
      */
-    private $compression;
+    private $compression = self::COMPRESSION_NONE;
 
     /**
      * @var bool
      */
-    private $compatibility;
+    private $compatibility = false;
 
     /**
-     * @param string $host
-     * @param int    $port
-     * @param string $keyspace
-     * @param string $user
-     * @param string $pass
+     * @param string[] $hosts
+     * @param string   $user
+     * @param string   $pass
      */
-    public function __construct(string $host, int $port, string $keyspace = null, string $user = null, string $pass = null)
+    public function __construct(array $hosts, string $user = null, string $pass = null)
     {
-        $this->host     = $host;
-        $this->port     = $port;
-        $this->keyspace = $keyspace ?: self::DEFAULT_KEYSPACE;
-        $this->user     = $user ?: self::DEFAULT_USER;
-        $this->pass     = $pass ?: self::DEFAULT_PASS;
+        $this->hosts = $hosts;
+        $this->user  = $user;
+        $this->pass  = $pass;
     }
 
     /**
@@ -112,50 +89,59 @@ final class Config
     {
         $parts = \parse_url($dsn);
 
-        \parse_str($parts['query'] ?? '', $query);
+        $scheme = $parts['scheme'] ?? self::DEFAULT_SCHEME;
+        $hosts  = \explode(',', $parts['host'] ?? self::DEFAULT_HOST);
+        $uris   = [];
 
-        $options = \array_replace(self::OPTIONS, $query);
+        if (isset($parts['port'])) {
+            \end($hosts);
 
-        $self = new self(
-            $parts['host'] ?? self::DEFAULT_HOST,
-            $parts['port'] ?? self::DEFAULT_PORT,
-            $parts['path'] ?? self::DEFAULT_KEYSPACE,
-            $parts['user'] ?? self::DEFAULT_USER,
-            $parts['pass'] ?? self::DEFAULT_PASS
-        );
+            $key = \key($hosts);
 
-        $self->tcpAttempts = \filter_var($options['tcp_attempts'], FILTER_VALIDATE_INT);
-        $self->tcpNoDelay  = \filter_var($options['tcp_nodelay'], FILTER_VALIDATE_BOOLEAN);
-        $self->tcpTimeout  = \filter_var($options['tcp_timeout'], FILTER_VALIDATE_INT);
+            $hosts[$key] = $hosts[$key] . ':' . $parts['port'];
 
-        $self->compression   = $options['compression'] ?? null;
-        $self->compatibility = $options['compatibility'] ?? null;
+            \reset($hosts);
+        }
+
+        foreach ($hosts as $host) {
+            $hostAndPort = \explode(':', $host);
+
+            $uris[] = \sprintf('%s://%s:%d', $scheme, $hostAndPort[0], (int) ($hostAndPort[1] ?? self::DEFAULT_PORT));
+        }
+
+        $self = new self($uris, $parts['user'] ?? null, $parts['pass'] ?? null);
+
+        \parse_str($parts['query'] ?? '', $options);
+
+        if (isset($options['tcp_nodelay'])) {
+            $self->tcpNoDelay  = \filter_var($options['tcp_nodelay'], FILTER_VALIDATE_BOOLEAN);
+        }
+
+        if (isset($options['tcp_attempts'])) {
+            $self->tcpAttempts = \filter_var($options['tcp_attempts'], FILTER_VALIDATE_INT) ?: 0;
+        }
+
+        if (isset($options['tcp_timeout'])) {
+            $self->tcpTimeout = \filter_var($options['tcp_timeout'], FILTER_VALIDATE_INT) ?: 0;
+        }
+
+        if (isset($options['compression']) && \is_string($options['compression'])) {
+            $self->compression($options['compression']);
+        }
+
+        if (isset($options['compatibility'])) {
+            $self->compatibility(\filter_var($options['compatibility'], FILTER_VALIDATE_BOOLEAN));
+        };
 
         return $self;
     }
 
     /**
-     * @return string
+     * @return string[]
      */
-    public function uri(): string
+    public function hosts(): array
     {
-        return \sprintf('tcp://%s:%d', $this->host, $this->port);
-    }
-
-    /**
-     * @return string
-     */
-    public function host(): string
-    {
-        return $this->host;
-    }
-
-    /**
-     * @return int
-     */
-    public function port(): int
-    {
-        return $this->port;
+        return $this->hosts;
     }
 
     /**
@@ -163,7 +149,7 @@ final class Config
      *
      * @return string
      */
-    public function user(string $value = null): string
+    public function user(string $value = null): ?string
     {
         return \is_null($value) ? $this->user : $this->user = $value;
     }
@@ -173,19 +159,9 @@ final class Config
      *
      * @return string
      */
-    public function password(string $value = null): string
+    public function password(string $value = null): ?string
     {
         return \is_null($value) ? $this->pass : $this->pass = $value;
-    }
-
-    /**
-     * @param string|null $value
-     *
-     * @return string
-     */
-    public function keyspace(string $value = null): string
-    {
-        return \is_null($value) ? $this->keyspace : $this->keyspace = $value;
     }
 
     /**
@@ -219,19 +195,39 @@ final class Config
     }
 
     /**
-     * @return bool|null
+     * @param bool|null $value
+     *
+     * @return bool
      */
-    public function compatibility(): ?bool
+    public function compatibility(bool $value = null): bool
     {
-        return $this->compatibility;
+        return \is_null($value) ? $this->compatibility : $this->compatibility = $value;
     }
 
     /**
-     * @return null|string
+     * @param string|null $value
+     *
+     * @return string
      */
-    public function compression(): ?string
+    public function compression(string $value = null): string
     {
-        return $this->compression;
+        if (\is_null($value)) {
+            return $this->compression;
+        }
+
+        if (!\in_array($value, [
+            self::COMPRESSION_NONE,
+            self::COMPRESSION_LZ4,
+            self::COMPRESSION_SNAPPY,
+        ])) {
+            throw Exception\ConfigException::unknownCompressionMechanism($value);
+        }
+
+        if ($value !== self::COMPRESSION_NONE && !\extension_loaded($value)) {
+            throw Exception\ConfigException::compressionExtensionNotLoaded($value);
+        }
+
+        return $this->compression = $value;
     }
 
     /**
@@ -239,10 +235,18 @@ final class Config
      */
     public function options(): array
     {
-        return \array_filter([
+        $options = [
             'CQL_VERSION' => self::CQL_VERSION,
-            //'COMPRESSION' => $this->compression,
-            //'NO_COMPACT'  => \is_bool($this->compatibility) ? !$this->compatibility : null,
-        ]);
+        ];
+
+        if ($this->compression !== self::COMPRESSION_NONE) {
+            $options['COMPRESSION'] = $this->compression;
+        }
+        
+        if ($this->compatibility) {
+            $options['NO_COMPACT'] = false;
+        }
+        
+        return $options;
     }
 }

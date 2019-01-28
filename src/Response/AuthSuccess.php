@@ -12,10 +12,9 @@ declare(strict_types = 1);
 
 namespace PHPinnacle\Cassis\Response;
 
-use PHPinnacle\Cassis\Frame;
+use PHPinnacle\Cassis\Response;
 
-class AuthSuccess extends Frame
+final class AuthSuccess extends Response
 {
     public $opcode = self::OPCODE_AUTH_SUCCESS;
-    public $type = self::RESPONSE;
 }

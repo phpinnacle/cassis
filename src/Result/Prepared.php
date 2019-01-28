@@ -12,6 +12,8 @@ declare(strict_types = 1);
 
 namespace PHPinnacle\Cassis\Result;
 
+use PHPinnacle\Cassis\Buffer;
+use PHPinnacle\Cassis\Column;
 use PHPinnacle\Cassis\Metadata;
 use PHPinnacle\Cassis\Response;
 use PHPinnacle\Cassis\Result;
@@ -24,25 +26,32 @@ class Prepared implements Result
     private $id;
 
     /**
-     * @var Metadata
+     * @var array
      */
-    private $prepared;
+    private $keys;
+    
+    /**
+     * @var array
+     */
+    private $columns;
 
     /**
      * @var Metadata
      */
-    private $result;
+    private $meta;
 
     /**
      * @param string   $id
-     * @param Metadata $prepared
-     * @param Metadata $result
+     * @param array    $keys
+     * @param array    $columns
+     * @param Metadata $meta
      */
-    public function __construct(string $id, Metadata $prepared, Metadata $result)
+    public function __construct(string $id, array $keys, array $columns, Metadata $meta)
     {
-        $this->id       = $id;
-        $this->prepared = $prepared;
-        $this->result   = $result;
+        $this->id      = $id;
+        $this->keys    = $keys;
+        $this->columns = $columns;
+        $this->meta    = $meta;
     }
 
     /**
@@ -52,10 +61,65 @@ class Prepared implements Result
      */
     public static function create(Response\Result $frame): self
     {
-        return new self(
-            $frame->data->consumeString(),
-            Metadata::create($frame->data),
-            Metadata::create($frame->data)
-        );
+        $buffer = new Buffer($frame->data);
+        
+        $statementId  = $buffer->consumeString();
+        $flags        = $buffer->consumeInt();
+        $columnsCount = $buffer->consumeInt();
+        $primaryCount = $buffer->consumeInt();
+
+        $keys     = [];
+        $columns  = [];
+    
+        for ($i = 0; $i < $primaryCount; ++$i) {
+            $keys[] = $buffer->consumeShort();
+        }
+    
+        if ($flags & Metadata::FLAG_GLOBAL_TABLES_SPEC) {
+            $keyspace = $buffer->consumeString();
+            $table    = $buffer->consumeString();
+        
+            for ($i = 0; $i < $columnsCount; ++$i) {
+                $columns[] = Column::partial($keyspace, $table, $buffer);
+            }
+        } else {
+            for ($i = 0; $i < $columnsCount; ++$i) {
+                $columns[] = Column::full($buffer);
+            }
+        }
+
+        return new self($statementId, $keys, $columns, Metadata::create($buffer));
+    }
+
+    /**
+     * @return string
+     */
+    public function id(): string
+    {
+        return $this->id;
+    }
+
+    /**
+     * @return array
+     */
+    public function keys(): array
+    {
+        return $this->keys;
+    }
+    
+    /**
+     * @return Column[]
+     */
+    public function columns(): array
+    {
+        return $this->columns;
+    }
+
+    /**
+     * @return Metadata
+     */
+    public function meta(): Metadata
+    {
+        return $this->meta;
     }
 }
