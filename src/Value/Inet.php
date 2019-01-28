@@ -25,25 +25,37 @@ final class Inet implements Value
     /**
      * @param string $value
      */
-    public function __construct(string $value)
+    private function __construct(string $value)
     {
         $this->value = $value;
     }
 
     /**
-     * {@inheritdoc}
+     * @param string $value
+     *
+     * @return self
      */
-    public static function readV4(Buffer $buffer): self
+    public static function fromString(string $value): self
     {
-        return new self(\inet_ntop($buffer->consume(4)));
+        if (\filter_var($value, FILTER_VALIDATE_IP) === false) {
+            throw new \InvalidArgumentException("Invalid ip address: \"{$value}\".");
+        }
+
+        return new self($value);
     }
 
     /**
-     * {@inheritdoc}
+     * @param string $bytes
+     *
+     * @return self
      */
-    public static function readV6(Buffer $buffer): self
+    public static function fromBytes(string $bytes): self
     {
-        return new self(\inet_ntop($buffer->consume(16)));
+        if (!$value = @\inet_ntop($bytes)) {
+            throw new \InvalidArgumentException("Cant read ip address from bytes string.");
+        }
+
+        return new self($value);
     }
 
     /**

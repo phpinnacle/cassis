@@ -25,11 +25,25 @@ final class Timestamp implements Value
     /**
      * @param int $value
      */
-    public function __construct(int $value)
+    private function __construct(int $value)
     {
+        if ($value < 0) {
+            throw new \InvalidArgumentException("Timestamp must be positive, {$value} given");
+        }
+
         $this->value = $value;
     }
-    
+
+    /**
+     * @param int $value
+     *
+     * @return self
+     */
+    public static function fromMicroSeconds(int $value): self
+    {
+        return new self($value);
+    }
+
     /**
      * @param \DateTimeInterface $dateTime
      *
@@ -47,7 +61,7 @@ final class Timestamp implements Value
      */
     public function toDateTime(): \DateTimeInterface
     {
-        $value = \substr_replace($this->value, '.', -5, 0);
+        $value = \substr_replace(\str_pad((string) $this->value, 7, '0', STR_PAD_LEFT), '.', -6, 0);
 
         return \DateTimeImmutable::createFromFormat('U.u', $value);
     }
@@ -69,13 +83,5 @@ final class Timestamp implements Value
             ->appendInt(8)
             ->appendLong($this->value)
         ;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public static function read(Buffer $buffer): self
-    {
-        return new self($buffer->consumeLong());
     }
 }

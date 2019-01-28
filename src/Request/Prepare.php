@@ -13,23 +13,30 @@ declare(strict_types = 1);
 namespace PHPinnacle\Cassis\Request;
 
 use PHPinnacle\Cassis\Buffer;
-use PHPinnacle\Cassis\Frame;
+use PHPinnacle\Cassis\Request;
 
-class Prepare extends Frame
+final class Prepare extends Request
 {
     public $opcode = self::OPCODE_PREPARE;
-    public $type = self::REQUEST;
 
     /**
-     * @param int    $stream
+     * @var string
+     */
+    public $cql;
+
+    /**
      * @param string $cql
      */
-    public function __construct(int $stream, string $cql)
+    public function __construct(string $cql)
     {
-        $buffer = new Buffer;
-        $buffer->appendLongString($cql);
-
-        $this->stream = $stream;
-        $this->body   = $buffer->flush();
+        $this->cql = $cql;
+    }
+    
+    /**
+     * {@inheritdoc}
+     */
+    public function write(Buffer $buffer): void
+    {
+        $buffer->appendLongString($this->cql);
     }
 }

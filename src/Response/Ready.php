@@ -12,10 +12,9 @@ declare(strict_types = 1);
 
 namespace PHPinnacle\Cassis\Response;
 
-use PHPinnacle\Cassis\Frame;
+use PHPinnacle\Cassis\Response;
 
-class Ready extends Frame
+final class Ready extends Response
 {
     public $opcode = self::OPCODE_READY;
-    public $type = self::RESPONSE;
 }

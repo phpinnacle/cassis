@@ -12,15 +12,6 @@ declare(strict_types = 1);
 
 namespace PHPinnacle\Cassis\Value;
 
-use Ramsey\Uuid\Uuid as Implementation;
-
-final class Timeuuid extends Uuid
+final class UserDefined extends Compound
 {
-    /**
-     * @return \DateTimeInterface
-     */
-    public function toDateTime(): \DateTimeInterface
-    {
-        return Implementation::fromString($this->value)->getDateTime();
-    }
 }

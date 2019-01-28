@@ -25,9 +25,42 @@ final class Time implements Value
     /**
      * @param int $value
      */
-    public function __construct(int $value)
+    private function __construct(int $value = 0)
     {
+        if ($value < 0) {
+            throw new \InvalidArgumentException("Time must be nanoseconds since midnight, {$value} given");
+        }
+
+        if ($value > 86399999999999) {
+            throw new \InvalidArgumentException("Time must be nanoseconds since midnight, {$value} given");
+        }
+
         $this->value = $value;
+    }
+
+    /**
+     * @param int $value
+     *
+     * @return self
+     */
+    public static function fromNanoSeconds(int $value): self
+    {
+        return new self($value);
+    }
+    
+    /**
+     * @param \DateTimeInterface $time
+     *
+     * @return self
+     */
+    public static function fromDateTime(\DateTimeInterface $time): self
+    {
+        $parts = \array_map('intval', \explode(':', $time->format('H:i:s:u')));
+
+        $seconds = $parts[0] * 3600 + $parts[1] * 60 + $parts[2];
+        $micro   = $seconds * 1000000 + $parts[3];
+
+        return new self($micro * 1000);
     }
 
     /**
@@ -38,9 +71,9 @@ final class Time implements Value
     public static function fromInterval(\DateInterval $interval): self
     {
         $seconds = $interval->h * 3600 + $interval->m * 60 + $interval->s;
-        $micro   = $seconds * 100000 + $interval->f;
+        $micro   = $seconds * 1000000 + $interval->f;
 
-        return new self($micro * 1000);
+        return new self((int) $micro * 1000);
     }
 
     /**
@@ -50,13 +83,24 @@ final class Time implements Value
      */
     public function toDateInterval(): \DateInterval
     {
-        $value = \floor($this->value / 1000);
-
         /** @noinspection PhpUnhandledExceptionInspection */
         $now = (new \DateTimeImmutable)->setTime(0, 0, 0, 0);
-        $new = $now->setTime(0, 0, 0, (int) $value);
 
-        return $now->diff($new, true);
+        return $this->toDateTime()->diff($now);
+    }
+
+    /**
+     * @noinspection PhpDocMissingThrowsInspection
+     *
+     * @return \DateTimeInterface
+     */
+    public function toDateTime(): \DateTimeInterface
+    {
+        $value   = (int) \floor($this->value / 1000);
+        $seconds = (int) \floor($value / 1000000);
+
+        /** @noinspection PhpUnhandledExceptionInspection */
+        return (new \DateTimeImmutable)->setTime(0, 0, $seconds, $value - $seconds * 1000000);
     }
 
     /**
@@ -76,13 +120,5 @@ final class Time implements Value
             ->appendInt(8)
             ->appendLong($this->value)
         ;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public static function read(Buffer $buffer): self
-    {
-        return new self($buffer->consumeLong());
     }
 }

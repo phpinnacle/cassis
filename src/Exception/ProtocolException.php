@@ -10,13 +10,8 @@
 
 declare(strict_types = 1);
 
-namespace PHPinnacle\Cassis\Request;
+namespace PHPinnacle\Cassis\Exception;
 
-use PHPinnacle\Cassis\Frame;
-
-class Event extends Frame
+final class ProtocolException extends ServerException
 {
-    public $opcode = self::OPCODE_EVENT;
-    public $type = self::REQUEST;
-    public $stream = -1;
 }

@@ -13,8 +13,8 @@ declare(strict_types = 1);
 namespace PHPinnacle\Cassis;
 
 use function Amp\asyncCall, Amp\call;
-use Amp\Deferred;
 use function Amp\Socket\connect;
+use Amp\Deferred;
 use Amp\Loop;
 use Amp\Promise;
 use Amp\Socket\ClientConnectContext;
@@ -22,10 +22,22 @@ use Amp\Socket\Socket;
 
 final class Connection
 {
+    const WRITE_ROUNDS = 64;
+
     /**
      * @var string
      */
     private $uri;
+
+    /**
+     * @var Streams
+     */
+    private $streams;
+    
+    /**
+     * @var Buffer
+     */
+    private $packer;
 
     /**
      * @var Parser
@@ -33,14 +45,29 @@ final class Connection
     private $parser;
 
     /**
+     * @var EventEmitter
+     */
+    private $emitter;
+
+    /**
+     * @var \SplQueue
+     */
+    private $queue;
+
+    /**
      * @var Socket
      */
     private $socket;
 
     /**
-     * @var callable[]
+     * @var bool
      */
-    private $callbacks = [];
+    private $processing = false;
+
+    /**
+     * @var Deferred[]
+     */
+    private $defers = [];
 
     /**
      * @var int
@@ -48,68 +75,56 @@ final class Connection
     private $lastWrite = 0;
 
     /**
-     * @param string $uri
+     * @param string          $uri
+     * @param Streams         $streams
+     * @param Compressor      $compressor
      */
-    public function __construct(string $uri)
+    public function __construct(string $uri, Streams $streams, Compressor $compressor)
     {
-        $this->uri    = $uri;
-        $this->parser = new Parser;
+        $this->uri     = $uri;
+        $this->streams = $streams;
+        $this->packer  = new Packer($compressor);
+        $this->parser  = new Parser($compressor);
+        $this->emitter = new EventEmitter($this);
+        $this->queue   = new \SplQueue;
     }
 
     /**
-     * @param int      $stream
-     * @param callable $callback
-     */
-    public function subscribe(int $stream, callable $callback): void
-    {
-        $this->callbacks[$stream][] = $callback;
-    }
-
-    /**
-     * @param int $stream
+     * @param string   $event
+     * @param callable $listener
      *
      * @return Promise
      */
-    public function await(int $stream): Promise
+    public function register(string $event, callable $listener): Promise
     {
-        $deferred = new Deferred;
-
-        $this->subscribe($stream, function (Frame $frame) use ($deferred) {
-            if ($frame instanceof Response\Error) {
-                $deferred->fail(new Exception\ServerException($frame->message, $frame->code));
-            } else {
-                $deferred->resolve($frame);
-            }
-
-            return true;
-        });
-
-        return $deferred->promise();
-    }
-
-    /**
-     * @param int $stream
-     *
-     * @return void
-     */
-    public function cancel(int $stream): void
-    {
-        unset($this->callbacks[$stream]);
+        return $this->emitter->register($event, $listener);
     }
 
     /**
      * @noinspection PhpDocMissingThrowsInspection
      *
-     * @param Frame $frame
+     * @param Request $request
      *
      * @return Promise
      */
-    public function send(Frame $frame): Promise
+    public function send(Request $request): Promise
     {
-        $this->lastWrite = Loop::now();
+        $stream   = $this->streams->reserve();
+        $deferred = new Deferred;
 
-        /** @noinspection PhpUnhandledExceptionInspection */
-        return $this->socket->write($frame->pack()->flush());
+        $this->defers[$stream] = $deferred;
+
+        $this->queue->enqueue($this->packer->pack($request, $stream));
+
+        if ($this->processing === false) {
+            $this->processing = true;
+
+            Loop::defer(function () {
+                $this->write();
+            });
+        }
+
+        return $deferred->promise();
     }
 
     /**
@@ -122,36 +137,23 @@ final class Connection
     public function open(int $timeout, int $attempts, bool $noDelay): Promise
     {
         return call(function () use ($timeout, $attempts, $noDelay) {
-            $context = (new ClientConnectContext)
-                ->withConnectTimeout($timeout)
-                ->withMaxAttempts($attempts)
-            ;
+            $context = new ClientConnectContext;
+
+            if ($attempts > 0) {
+                $context = $context->withMaxAttempts($attempts);
+            }
+
+            if ($timeout > 0) {
+                $context = $context->withConnectTimeout($timeout);
+            }
 
             if ($noDelay) {
-                $context->withTcpNoDelay();
+                $context = $context->withTcpNoDelay();
             }
 
             $this->socket = yield connect($this->uri, $context);
 
-            asyncCall(function () {
-                while (null !== $chunk = yield $this->socket->read()) {
-                    $this->parser->append($chunk);
-
-                    while ($frame = $this->parser->parse()) {
-                        if (!isset($this->callbacks[$frame->stream])) {
-                            continue 2;
-                        }
-
-                        foreach ($this->callbacks[$frame->stream] as $i => $callback) {
-                            if (yield call($callback, $frame)) {
-                                unset($this->callbacks[$frame->stream][$i]);
-                            }
-                        }
-                    }
-                }
-
-                unset($this->socket);
-            });
+            $this->listen();
         });
     }
 
@@ -164,6 +166,75 @@ final class Connection
             $this->socket->close();
         }
 
-        $this->callbacks = [];
+        $this->defers = [];
+    }
+    
+    /**
+     * @return void
+     */
+    private function write(): void
+    {
+        asyncCall(function () {
+            $processed = 0;
+            $data = '';
+
+            while ($this->queue->isEmpty() === false) {
+                $data .= $this->queue->dequeue();
+
+                ++$processed;
+
+                if ($processed % self::WRITE_ROUNDS === 0) {
+                    Loop::defer(function () {
+                        $this->write();
+                    });
+
+                    break;
+                }
+            }
+
+            yield $this->socket->write($data);
+
+            $this->lastWrite = Loop::now();
+
+            $this->processing = false;
+        });
+    }
+
+    /**
+     * @return void
+     */
+    private function listen(): void
+    {
+        asyncCall(function () {
+            while (null !== $chunk = yield $this->socket->read()) {
+                $this->parser->append($chunk);
+
+                while ($frame = $this->parser->parse()) {
+                    if ($frame->stream === -1) {
+                        $this->emitter->emit($frame);
+
+                        continue 2;
+                    }
+
+                    if (!isset($this->defers[$frame->stream])) {
+                        continue 2;
+                    }
+
+                    $deferred = $this->defers[$frame->stream];
+                    unset($this->defers[$frame->stream]);
+
+                    $this->streams->release($frame->stream);
+
+                    if ($frame->opcode === Frame::OPCODE_ERROR) {
+                        /** @var Response\Error $frame */
+                        $deferred->fail($frame->exception);
+                    } else {
+                        $deferred->resolve($frame);
+                    }
+                }
+            }
+
+            $this->socket = null;
+        });
     }
 }

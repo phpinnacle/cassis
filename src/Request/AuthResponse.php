@@ -13,12 +13,21 @@ declare(strict_types = 1);
 namespace PHPinnacle\Cassis\Request;
 
 use PHPinnacle\Cassis\Buffer;
-use PHPinnacle\Cassis\Frame;
+use PHPinnacle\Cassis\Request;
 
-class AuthResponse extends Frame
+final class AuthResponse extends Request
 {
     public $opcode = self::OPCODE_AUTH_RESPONSE;
-    public $type = self::REQUEST;
+
+    /**
+     * @var string
+     */
+    public $user;
+
+    /**
+     * @var string
+     */
+    public $password;
 
     /**
      * @param string $user
@@ -26,13 +35,18 @@ class AuthResponse extends Frame
      */
     public function __construct(string $user, string $password)
     {
-        $buffer = new Buffer;
-        $buffer
-            ->appendString($user)
-            ->appendString($password)
-        ;
+        $this->user     = $user;
+        $this->password = $password;
+    }
 
-        $this->stream = 0;
-        $this->body   = $buffer->flush();
+    /**
+     * {@inheritdoc}
+     */
+    public function write(Buffer $buffer): void
+    {
+        $buffer
+            ->appendString($this->user)
+            ->appendString($this->password)
+        ;
     }
 }

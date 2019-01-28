@@ -10,9 +10,10 @@
 
 namespace PHPinnacle\Cassis\Type;
 
+use PHPinnacle\Cassis\Buffer;
 use PHPinnacle\Cassis\Type;
 
-final class Map implements Type
+final class KeyValue implements Type
 {
     /**
      * @var Type
@@ -35,26 +36,15 @@ final class Map implements Type
     }
 
     /**
-     * @return int
+     * @param Buffer $buffer
+     *
+     * @return mixed
      */
-    public function code(): int
+    public function read(Buffer $buffer)
     {
-        return self::COLLECTION_MAP;
-    }
-
-    /**
-     * @return Type
-     */
-    public function key(): Type
-    {
-        return $this->key;
-    }
-
-    /**
-     * @return Type
-     */
-    public function value(): Type
-    {
-        return $this->value;
+        return [
+            $this->key->read($buffer),
+            $this->value->read($buffer)
+        ];
     }
 }

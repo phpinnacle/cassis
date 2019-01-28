@@ -12,12 +12,11 @@ declare(strict_types = 1);
 
 namespace PHPinnacle\Cassis\Response;
 
-use PHPinnacle\Cassis\Frame;
+use PHPinnacle\Cassis\Response;
 
-class Authenticate extends Frame
+final class Authenticate extends Response
 {
     public $opcode = self::OPCODE_AUTHENTICATE;
-    public $type = self::RESPONSE;
 
     /**
      * @var string

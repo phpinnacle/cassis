@@ -13,22 +13,30 @@ declare(strict_types = 1);
 namespace PHPinnacle\Cassis\Request;
 
 use PHPinnacle\Cassis\Buffer;
-use PHPinnacle\Cassis\Frame;
+use PHPinnacle\Cassis\Request;
 
-class Startup extends Frame
+final class Startup extends Request
 {
     public $opcode = self::OPCODE_STARTUP;
-    public $type = self::REQUEST;
+    
+    /**
+     * @var array
+     */
+    public $options;
 
     /**
      * @param array $options
      */
     public function __construct(array $options)
     {
-        $buffer = new Buffer;
-        $buffer->appendStringMap($options);
-
-        $this->stream = 0;
-        $this->body   = $buffer->flush();
+        $this->options = $options;
+    }
+    
+    /**
+     * {@inheritdoc}
+     */
+    public function write(Buffer $buffer): void
+    {
+        $buffer->appendStringMap($this->options);
     }
 }

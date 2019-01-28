@@ -17,32 +17,51 @@ use Amp\Promise;
 
 final class Session
 {
-    private const
-        RESPONSE_VOID    = 0x0001,
-        RESPONSE_ROWS    = 0x0002,
-        RESPONSE_USE     = 0x0003,
-        RESPONSE_PREPARE = 0x0004,
-        RESPONSE_ALTER   = 0x0005
-    ;
-
-    private const MAX_STREAM = 32768;
-
     /**
      * @var Connection
      */
     private $connection;
 
     /**
-     * @var int
+     * @var string
      */
-    private $stream = 0;
-    
+    private $keyspace;
+
     /**
      * @param Connection $connection
      */
     public function __construct(Connection $connection)
     {
         $this->connection = $connection;
+    }
+
+    /**
+     * @param string $keyspace
+     *
+     * @return Promise<string>
+     */
+    public function keyspace(string $keyspace): Promise
+    {
+        return call(function () use ($keyspace) {
+            if ($this->keyspace === $keyspace) {
+                return $this->keyspace;
+            }
+
+            yield $this->execute(new Statement\Simple("USE {$keyspace}"));
+
+            return $this->keyspace = $keyspace;
+        });
+    }
+
+    /**
+     * @param string   $event
+     * @param callable $listener
+     *
+     * @return Promise
+     */
+    public function register(string $event, callable $listener): Promise
+    {
+        return $this->connection->register($event, $listener);
     }
 
     /**
@@ -58,6 +77,25 @@ final class Session
     }
 
     /**
+     * @param string $cql
+     *
+     * @return Promise<Result\Prepared>
+     */
+    public function prepare(string $cql): Promise
+    {
+        return call(function () use ($cql) {
+            $request  = new Request\Prepare($cql);
+            $response = yield $this->connection->send($request);
+
+            if ($response->kind !== Result::PREPARE) {
+                throw new Exception\ServerException;
+            }
+
+            return Result\Prepared::create($response);
+        });
+    }
+
+    /**
      * @param Statement $statement
      * @param Context   $context
      *
@@ -66,41 +104,18 @@ final class Session
     public function execute(Statement $statement, Context $context = null): Promise
     {
         return call(function () use ($statement, $context) {
-            $stream  = $this->reserveStream();
-            $context = $context ?: new Context;
+            $request  = $this->request($statement, $context ?: new Context);
+            $response = yield $this->connection->send($request);
 
-            switch (true) {
-                case $statement instanceof Statement\Simple:
-                    $query = new Request\Query($stream, $statement->cql(), $statement->values(), $context);
-
-                    break;
-                case $statement instanceof Statement\Prepared:
-                    $query = new Request\Execute($stream, $statement->id(), $statement->values(), $context);
-
-                    break;
-                case $statement instanceof Statement\Batch:
-                    $query = new Request\Batch($stream, $statement->type(), $statement->queries(), $context);
-                    break;
-                default:
-                    throw new Exception\ClientException;
-            }
-
-            yield $this->connection->send($query);
-
-            /** @var Response\Result $frame */
-            $frame = yield $this->connection->await($stream);
-
-            $this->releaseStream($stream);
-
-            switch ($frame->kind) {
-                case self::RESPONSE_VOID:
+            switch ($response->kind) {
+                case Result::VOID:
                     return null;
-                case self::RESPONSE_ROWS:
-                    return Result\Rows::create($frame);
-                case self::RESPONSE_USE:
-                    return Result\SetKeyspace::create($frame);
-                case self::RESPONSE_ALTER:
-                    return Result\SchemaChange::create($frame);
+                case Result::ROWS:
+                    return Result\Rows::create($response);
+                case Result::USE:
+                    return Result\SetKeyspace::create($response);
+                case Result::ALTER:
+                    return Result\SchemaChange::create($response);
                 default:
                     throw new Exception\ServerException;
             }
@@ -108,54 +123,22 @@ final class Session
     }
 
     /**
-     * @param string $cql
+     * @param Statement $statement
+     * @param Context   $context
      *
-     * @return Promise<Prepared>
+     * @return Request
      */
-    public function prepare(string $cql): Promise
+    private function request(Statement $statement, Context $context): Request
     {
-        return call(function () use ($cql) {
-            $stream  = $this->reserveStream();
-            $prepare = new Request\Prepare($stream, $cql);
-
-            yield $this->connection->send($prepare);
-
-            /** @var Response\Result $frame */
-            $frame = yield $this->connection->await($stream);
-
-            $this->releaseStream($stream);
-
-            if ($frame->kind !== self::RESPONSE_PREPARE) {
-                throw new Exception\ServerException;
-            }
-
-            return Result\Prepared::create($frame);
-        });
-    }
-
-    /**
-     * @return Promise
-     */
-    public function close(): Promise
-    {
-        return call(function () {
-
-        });
-    }
-
-    /**
-     * @return int
-     */
-    private function reserveStream(): int
-    {
-        return $this->stream++;
-    }
-
-    /**
-     * @param int $stream
-     */
-    private function releaseStream(int $stream): void
-    {
-        // TODO
+        switch (true) {
+            case $statement instanceof Statement\Simple:
+                return new Request\Query($statement->cql(), $context->arguments($statement->values()));
+            case $statement instanceof Statement\Prepared:
+                return new Request\Execute($statement->id(), $context->arguments($statement->values()));
+            case $statement instanceof Statement\Batch:
+                return new Request\Batch($statement->type(), $statement->queries(), $context);
+            default:
+                throw new Exception\ClientException;
+        }
     }
 }

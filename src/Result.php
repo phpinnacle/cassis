@@ -14,4 +14,11 @@ namespace PHPinnacle\Cassis;
 
 interface Result
 {
+    const
+        VOID    = 0x0001,
+        ROWS    = 0x0002,
+        USE     = 0x0003,
+        PREPARE = 0x0004,
+        ALTER   = 0x0005
+    ;
 }

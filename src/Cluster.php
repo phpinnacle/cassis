@@ -14,6 +14,7 @@ namespace PHPinnacle\Cassis;
 
 use function Amp\call;
 use Amp\Promise;
+use Amp\Socket;
 
 final class Cluster
 {
@@ -30,14 +31,14 @@ final class Cluster
     private $config;
 
     /**
+     * @var Streams
+     */
+    private $streams;
+
+    /**
      * @var int
      */
     private $state = self::STATE_NOT_CONNECTED;
-
-    /**
-     * @var Session[]
-     */
-    private $sessions = [];
 
     /**
      * @var Connection
@@ -49,7 +50,8 @@ final class Cluster
      */
     public function __construct(Config $config)
     {
-        $this->config = $config;
+        $this->config  = $config;
+        $this->streams = Streams::instance();
     }
 
     /**
@@ -63,6 +65,23 @@ final class Cluster
     }
 
     /**
+     * @return Promise<array>
+     */
+    public function options(): Promise
+    {
+        return call(function () {
+            if ($this->connection === null) {
+                $this->connection = yield $this->open();
+            }
+
+            /** @var Response\Supported $response */
+            $response = yield $this->connection->send(new Request\Options);
+
+            return $response->options;
+        });
+    }
+
+    /**
      * @param string $keyspace
      *
      * @return Promise<void>
@@ -71,22 +90,16 @@ final class Cluster
     {
         return call(function () use ($keyspace) {
             if ($this->state !== self::STATE_NOT_CONNECTED) {
-                throw new \RuntimeException('Client already connected/connecting');
+                throw Exception\ClientException::alreadyConnected();
             }
 
             $this->state = self::STATE_CONNECTING;
 
-            $this->connection = new Connection($this->config->uri());
+            if (null === $this->connection) {
+                $this->connection = yield $this->open();
+            }
 
-            yield $this->connection->open(
-                $this->config->tcpTimeout(),
-                $this->config->tcpAttempts(),
-                $this->config->tcpNoDelay()
-            );
-
-            yield $this->connection->send(new Request\Startup($this->config->options()));
-
-            $frame = yield $this->connection->await(0);
+            $frame = yield $this->connection->send(new Request\Startup($this->config->options()));
 
             if ($frame instanceof Response\Authenticate) {
                 yield $this->authenticate();
@@ -95,7 +108,7 @@ final class Cluster
             $session = new Session($this->connection);
 
             if ($keyspace !== null) {
-                yield $session->execute(new Statement\Simple("USE {$keyspace}"));
+                yield $session->keyspace($keyspace);
             }
 
             $this->state = self::STATE_CONNECTED;
@@ -113,27 +126,15 @@ final class Cluster
     public function disconnect(int $code = 0, string $reason = ''): Promise
     {
         return call(function() use ($code, $reason) {
-            if (\in_array($this->state, [self::STATE_NOT_CONNECTED, self::STATE_DISCONNECTING])) {
+            if ($this->state === self::STATE_DISCONNECTING) {
                 return;
-            }
-
-            if ($this->state !== self::STATE_CONNECTED) {
-                throw new Exception\ClientException('Client is not connected');
             }
 
             $this->state = self::STATE_DISCONNECTING;
 
-            if ($code === 0) {
-                $promises = [];
-
-                foreach($this->sessions as $id => $session) {
-                    $promises[] = $session->close($code, $reason);
-                }
-
-                yield $promises;
+            if ($this->connection !== null) {
+                $this->connection->close();
             }
-
-            $this->connection->close();
 
             $this->state = self::STATE_NOT_CONNECTED;
         });
@@ -150,15 +151,53 @@ final class Cluster
     /**
      * @return Promise
      */
-    private function authenticate(): Promise
+    private function open(): Promise
     {
         return call(function () {
-            yield $this->connection->send(new Request\AuthResponse(
-                $this->config->user(),
-                $this->config->password()
-            ));
+            $compressor = $this->detectCompressor();
 
-            yield $this->connection->await(0);
+            foreach ($this->config->hosts() as $host) {
+                $connection = new Connection($host, $this->streams, $compressor);
+
+                try {
+                    yield $connection->open(
+                        $this->config->tcpTimeout(),
+                        $this->config->tcpAttempts(),
+                        $this->config->tcpNoDelay()
+                    );
+
+                    return $connection;
+                } catch (Socket\ConnectException $error) {
+                    continue;
+                }
+            }
+
+            throw Exception\ClientException::couldNotConnect();
         });
+    }
+
+    /**
+     * @return Promise
+     */
+    private function authenticate(): Promise
+    {
+        return $this->connection->send(new Request\AuthResponse($this->config->user(), $this->config->password()));
+    }
+    
+    /**
+     * @return Compressor
+     */
+    private function detectCompressor(): Compressor
+    {
+        switch ($this->config->compression()) {
+            case Config::COMPRESSION_NONE:
+                return new Compressor\NoneCompressor;
+            case Config::COMPRESSION_LZ4:
+                return new Compressor\LzCompressor;
+            case Config::COMPRESSION_SNAPPY:
+                return new Compressor\SnappyCompressor;
+            default:
+                throw Exception\ConfigException::unknownCompressionMechanism($this->config->compression());
+        }
     }
 }

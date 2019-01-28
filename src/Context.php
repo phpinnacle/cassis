@@ -47,11 +47,6 @@ final class Context
     private $flags = 0;
 
     /**
-     * @var array
-     */
-    private $values;
-
-    /**
      * @var int
      */
     private $pageSize;
@@ -72,6 +67,11 @@ final class Context
     private $defaultTimestamp;
 
     /**
+     * @var array
+     */
+    private $values;
+
+    /**
      * @param int $consistency
      */
     public function __construct(int $consistency = self::CONSISTENCY_ALL)
@@ -85,31 +85,6 @@ final class Context
     public function consistency(): int
     {
         return $this->consistency;
-    }
-
-    /**
-     * @return int
-     */
-    public function flags(): int
-    {
-        return $this->flags;
-    }
-
-    /**
-     * @param mixed[] $values
-     *
-     * @return self
-     */
-    public function withValues(array $values): self
-    {
-        $this->flags |= self::FLAG_VALUES;
-        $this->values = $values;
-
-        if (\array_keys($values) !== \range(0, \count($values) - 1)) {
-            $this->flags |= self::FLAG_NAMES_FOR_VALUES;
-        }
-
-        return $this;
     }
 
     /**
@@ -237,7 +212,7 @@ final class Context
      *
      * @return self
      */
-    public function pageSize(int $size): self
+    public function limit(int $size): self
     {
         $this->flags |= self::FLAG_PAGE_SIZE;
         $this->pageSize = $size;
@@ -246,14 +221,14 @@ final class Context
     }
 
     /**
-     * @param string $state
+     * @param string $offset
      *
      * @return self
      */
-    public function pagingState(string $state): self
+    public function offset(string $offset): self
     {
         $this->flags |= self::FLAG_PAGING_STATE;
-        $this->pagingState = $state;
+        $this->pagingState = $offset;
 
         return $this;
     }
@@ -285,16 +260,35 @@ final class Context
     }
 
     /**
+     * @param mixed[] $values
+     *
+     * @return self
+     */
+    public function arguments(array $values): self
+    {
+        if (empty($values)) {
+            return $this;
+        }
+
+        $this->flags |= self::FLAG_VALUES;
+        $this->values = $values;
+
+        if (\is_assoc($values)) {
+            $this->flags |= self::FLAG_NAMES_FOR_VALUES;
+        }
+
+        return $this;
+    }
+
+    /**
      * @param Buffer $buffer
      *
-     * @return Buffer
+     * @return void
      */
-    public function queryParameters(Buffer $buffer): string
+    public function writeParameters(Buffer $buffer): void
     {
-        $flags = $this->flags;
-
         $buffer->appendShort($this->consistency);
-        $buffer->appendByte($flags);
+        $buffer->appendByte($this->flags);
 
         if ($this->flags & self::FLAG_VALUES) {
             if ($this->flags & self::FLAG_NAMES_FOR_VALUES) {
@@ -309,7 +303,7 @@ final class Context
         }
 
         if ($this->flags & self::FLAG_PAGING_STATE) {
-            $buffer->appendBytes($this->pagingState);
+            $buffer->appendLongString($this->pagingState);
         }
 
         if ($this->flags & self::FLAG_SERIAL_CONSISTENCY) {
@@ -319,7 +313,5 @@ final class Context
         if ($this->flags & self::FLAG_DEFAULT_TIMESTAMP) {
             $buffer->appendLong($this->defaultTimestamp);
         }
-
-        return $buffer->flush();
     }
 }

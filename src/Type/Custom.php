@@ -10,7 +10,9 @@
 
 namespace PHPinnacle\Cassis\Type;
 
+use PHPinnacle\Cassis\Buffer;
 use PHPinnacle\Cassis\Type;
+use PHPinnacle\Cassis\Value;
 
 final class Custom implements Type
 {
@@ -28,18 +30,18 @@ final class Custom implements Type
     }
 
     /**
-     * @return int
-     */
-    public function code(): int
-    {
-        return self::CUSTOM;
-    }
-
-    /**
      * @return string
      */
     public function class(): string
     {
         return $this->class;
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function read(Buffer $buffer): Value
+    {
+        // TODO
     }
 }

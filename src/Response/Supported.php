@@ -12,10 +12,22 @@ declare(strict_types = 1);
 
 namespace PHPinnacle\Cassis\Response;
 
-use PHPinnacle\Cassis\Frame;
+use PHPinnacle\Cassis\Response;
 
-class Supported extends Frame
+final class Supported extends Response
 {
     public $opcode = self::OPCODE_SUPPORTED;
-    public $type = self::RESPONSE;
+    
+    /**
+     * @var string[][]
+     */
+    public $options;
+    
+    /**
+     * @param string[][] $options
+     */
+    public function __construct(array $options)
+    {
+        $this->options = $options;
+    }
 }

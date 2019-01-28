@@ -31,6 +31,30 @@ final class Double implements Value
     }
 
     /**
+     * @param float $value
+     *
+     * @return self
+     */
+    public static function fromFloat(float $value): self
+    {
+        return new self($value);
+    }
+    
+    /**
+     * @param string $value
+     *
+     * @return self
+     */
+    public static function fromString(string $value): self
+    {
+        if (false === \is_numeric($value)) {
+            throw new \InvalidArgumentException("Value \"{$value}\" not numeric");
+        }
+        
+        return new self((float) $value);
+    }
+
+    /**
      * @return float
      */
     public function value(): float
@@ -48,14 +72,12 @@ final class Double implements Value
             ->appendDouble($this->value)
         ;
     }
-
+    
     /**
-     * @param Buffer $buffer
-     *
-     * @return self
+     * @return string
      */
-    public static function read(Buffer $buffer): self
+    public function __toString(): string
     {
-        return new self($buffer->consumeDouble());
+        return (string) $this->value;
     }
 }

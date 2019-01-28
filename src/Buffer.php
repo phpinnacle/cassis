@@ -13,6 +13,7 @@ declare(strict_types = 1);
 namespace PHPinnacle\Cassis;
 
 use PHPinnacle\Buffer\Binary;
+use Ramsey\Uuid\UuidInterface;
 
 final class Buffer
 {
@@ -120,13 +121,54 @@ final class Buffer
     }
 
     /**
+     * @param array $bytes
+     *
+     * @return self
+     */
+    public function appendBytes(array $bytes): self
+    {
+        $this->appendInt(\count($bytes));
+
+        foreach ($bytes as $byte) {
+            $this->appendByte($byte);
+        }
+
+        return $this;
+    }
+
+    /**
+     * @param int $n
+     *
+     * @return int[]
+     */
+    public function consumeBytes(int $n): array
+    {
+        return \array_values(\unpack('C*', $this->consume($n)));
+    }
+
+    /**
+     * @return int[]
+     */
+    public function consumeBytesMap(): array
+    {
+        $count = $this->consumeShort();
+        $bytes = [];
+
+        for ($i = 0; $i < $count; ++$i) {
+            $bytes[$this->consumeString()] = $this->consumeBytes($this->consumeInt());
+        }
+
+        return $bytes;
+    }
+
+    /**
      * @param int $value
      *
      * @return self
      */
     public function appendShort(int $value): self
     {
-        $this->data->appendUint16($value);
+        $this->data->appendUint16(abs($value));
 
         return $this;
     }
@@ -246,7 +288,7 @@ final class Buffer
      */
     public function appendUint(int $value): self
     {
-        $this->data->appendUint32($value);
+        $this->data->appendUint32(abs($value));
 
         return $this;
     }
@@ -433,8 +475,23 @@ final class Buffer
         foreach ($values as $value) {
             $this->appendString($value);
         }
-
+        
         return $this;
+    }
+
+    /**
+     * @return string[]
+     */
+    public function consumeStringList(): array
+    {
+        $values = [];
+        $count  = $this->consumeShort();
+
+        for ($i = 0; $i < $count; ++$i) {
+            $values[] = $this->consumeString();
+        }
+
+        return $values;
     }
     
     /**
@@ -451,134 +508,6 @@ final class Buffer
             $this->appendString($value);
         }
         
-        return $this;
-    }
-    
-    /**
-     * @param array $values
-     *
-     * @return self
-     */
-    public function appendStringMultiMap(array $values): self
-    {
-        $this->appendShort(\count($values));
-        
-        foreach ($values as $key => $value) {
-            $this->appendString($key);
-            $this->appendStringList($value);
-        }
-        
-        return $this;
-    }
-    
-    /**
-     * @param int   $id
-     * @param mixed $value
-     *
-     * @return self
-     */
-    public function appendOption(int $id, $value): self
-    {
-        return $this
-            ->appendShort($id)
-            ->append($value)
-        ;
-    }
-    
-    /**
-     * @param string[] $values
-     *
-     * @return self
-     */
-    public function appendOptionList(array $values): self
-    {
-        $this->appendShort(\count($values));
-    
-        foreach ($values as $id => $value) {
-            $this->appendOption($id, $value);
-        }
-        
-        return $this;
-    }
-    
-    /**
-     * @param string $value
-     *
-     * @return self
-     */
-    public function appendBytes(string $value): self
-    {
-        return $this
-            ->appendInt(\strlen($value))
-            ->append($value)
-        ;
-    }
-
-    /**
-     * @param int $offset
-     *
-     * @return string
-     */
-    public function readBytes(int $offset = 0): string
-    {
-        return $this->data->read($this->readInt($offset), $offset + 4);
-    }
-
-    /**
-     * @return string
-     */
-    public function consumeBytes(): ?string
-    {
-        $n = $this->consumeInt();
-
-        return $n < 0 ? null : $this->data->consume($n);
-    }
-
-    /**
-     * @param mixed $value
-     *
-     * @return self
-     */
-    public function appendShortBytes(string $value): self
-    {
-        return $this
-            ->appendShort(\strlen($value))
-            ->append($value)
-        ;
-    }
-
-    /**
-     * @param int $offset
-     *
-     * @return string
-     */
-    public function readShortBytes(int $offset = 0): string
-    {
-        return $this->data->read($this->readShort($offset), $offset + 2);
-    }
-
-    /**
-     * @return string
-     */
-    public function consumeShortBytes(): string
-    {
-        return $this->data->consume($this->consumeShort());
-    }
-
-    /**
-     * @param array $values
-     *
-     * @return self
-     */
-    public function appendBytesMap(array $values): self
-    {
-        $this->appendShort(\count($values));
-    
-        foreach ($values as $key => $value) {
-            $this->appendString($key);
-            $this->appendBytes($value);
-        }
-
         return $this;
     }
 
@@ -599,7 +528,10 @@ final class Buffer
 
                 break;
             case \is_bool($value):
-                $this->appendByte($value ? 1 : 0);
+                $this
+                    ->appendInt(1)
+                    ->appendByte($value ? 1 : 0)
+                ;
 
                 break;
             case \is_int($value):
@@ -617,7 +549,27 @@ final class Buffer
 
                 break;
             case \is_string($value):
-                $this->appendLongString($value);
+                $this
+                    ->appendInt(\strlen($value))
+                    ->append($value)
+                ;
+
+                break;
+            case \is_array($value):
+                if (\is_assoc($value)) {
+                    $list = Value\Collection::assoc($value);
+                } else {
+                    $list = Value\Collection::list($value);
+                }
+
+                $list->write($this);
+
+                break;
+            case $value instanceof UuidInterface:
+                $this
+                    ->appendInt(16)
+                    ->append($value->getBytes())
+                ;
 
                 break;
             case $value instanceof \DateTimeInterface:
@@ -668,115 +620,6 @@ final class Buffer
     }
 
     /**
-     * @param Type $type
-     *
-     * @return null|bool|float|int|string|Value
-     */
-    public function consumeValue(Type $type)
-    {
-        $value  = null;
-        $length = $this->consumeInt();
-
-        if ($length < 0) {
-            return $value;
-        }
-
-        switch ($type->code()) {
-            case Type::CUSTOM:
-                $value = $this->consumeString();
-                break;
-            case Type::ASCII:
-            case Type::VARCHAR:
-            case Type::TEXT:
-            case Type::BLOB:
-                $value = $this->consume($length);
-                break;
-            case Type::BOOLEAN:
-                $value = (bool) $this->consumeByte();
-                break;
-            case Type::SMALLINT:
-                $value = $this->consumeSmallInt();
-                break;
-            case Type::TINYINT:
-                $value = $this->consumeTinyInt();
-                break;
-            case Type::INT:
-                $value = $this->consumeInt();
-                break;
-            case Type::BIGINT:
-                $value = $this->consumeLong();
-                break;
-            case Type::FLOAT:
-                $value = $this->consumeFloat();
-                break;
-            case Type::DOUBLE:
-                $value = Value\Double::read($this)->value();
-                break;
-            case Type::DECIMAL:
-                $value = Value\Decimal::read($this)->value();
-                break;
-            case Type::DATE:
-                $value = Value\Date::read($this);
-                break;
-            case Type::TIME:
-                $value = Value\Time::read($this);
-                break;
-            case Type::TIMESTAMP:
-                $value = Value\Timestamp::read($this);
-                break;
-            case Type::INET:
-                $value = $length === 4 ? Value\Inet::readV4($this) : Value\Inet::readV6($this);
-                break;
-            case Type::UUID:
-                $value = Value\Uuid::read($this);
-                break;
-            case Type::COUNTER:
-                $value = Value\Counter::read($this);
-                break;
-            case Type::TIMEUUID:
-                $value = Value\Timeuuid::read($this);
-                break;
-            case Type::COLLECTION_LIST:
-            case Type::COLLECTION_SET:
-                $value = [];
-                $count = $this->consumeInt();
-
-                for ($i = 0; $i < $count; ++$i) {
-                    /** @var Type\Collection|Type\Set $type */
-                    $value[] = $this->consumeValue($type->value());
-                }
-
-                break;
-            case Type::COLLECTION_MAP:
-                $value = [];
-                $count = $this->consumeInt();
-
-                /** @var Type\Map $type */
-                [$keyType, $valueType] = [$type->key(), $type->value()];
-
-                for ($i = 0; $i < $count; ++$i) {
-                    $value[$this->consumeValue($keyType)] = $this->consumeValue($valueType);
-                }
-
-                break;
-            case Type::UDT:
-            case Type::TUPLE:
-                $value = [];
-
-                /** @var Type\Tuple|Type\UserDefined $type */
-                foreach ($type->definitions() as $key => $type) {
-                    $value[$key] = $this->consumeValue($type);
-                }
-
-                break;
-            default:
-                throw new Exception\ClientException('Unknown type.');
-        }
-
-        return $value;
-    }
-
-    /**
      * @return Type
      */
     public function consumeType(): Type
@@ -786,12 +629,12 @@ final class Buffer
         switch ($type) {
             case Type::CUSTOM:
                 return new Type\Custom($this->consumeString());
-            case Type::COLLECTION_LIST:
-                return new Type\Collection($this->consumeType());
-            case Type::COLLECTION_SET:
-                return new Type\Set($this->consumeType());
-            case Type::COLLECTION_MAP:
-                return new Type\Map($this->consumeType(), $this->consumeType());
+            case Type::LIST:
+                return Type\Collection::list($this->consumeType());
+            case Type::SET:
+                return Type\Collection::set($this->consumeType());
+            case Type::MAP:
+                return Type\Collection::map($this->consumeType(), $this->consumeType());
             case Type::UDT:
                 $keyspace = $this->consumeString();
                 $name     = $this->consumeString();

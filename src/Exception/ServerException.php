@@ -12,6 +12,6 @@ declare(strict_types = 1);
 
 namespace PHPinnacle\Cassis\Exception;
 
-final class ServerException extends CassisException
+class ServerException extends CassisException
 {
 }

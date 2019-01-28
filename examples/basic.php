@@ -15,10 +15,12 @@ Loop::run(function () {
 
     $cluster = Cluster::build(\getenv('CASSIS_EXAMPLE_DSN'));
     /** @var Session $session */
-    $session = yield $cluster->connect('system');
-    $result  = yield $session->query('SELECT keyspace_name, columnfamily_name FROM schema_columnfamilies');
+    $session = yield $cluster->connect('system_schema');
+    $result  = yield $session->query('SELECT keyspace_name, table_name FROM tables');
 
     foreach ($result as $row) {
-        printf("The keyspace %s has a table called %s\n", $row['keyspace_name'], $row['columnfamily_name']);
+        \printf("The keyspace %s has a table called %s\n", $row['keyspace_name'], $row['table_name']);
     }
+
+    yield $cluster->disconnect();
 });

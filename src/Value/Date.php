@@ -31,13 +31,23 @@ final class Date implements Value
     }
 
     /**
+     * @param int $timestamp
+     *
+     * @return self
+     */
+    public static function fromSeconds(int $timestamp): self
+    {
+        return new self($timestamp - (2 ** 31));
+    }
+
+    /**
      * @param \DateTimeInterface $dateTime
      *
      * @return self
      */
-    public function fromDateTime(\DateTimeInterface $dateTime): self
+    public static function fromDateTime(\DateTimeInterface $dateTime): self
     {
-        return new self((int) floor($dateTime->getTimestamp() / 86400) + (2 ** 31) + 1);
+        return new self((int) floor($dateTime->getTimestamp() / 86400));
     }
 
     /**
@@ -47,10 +57,11 @@ final class Date implements Value
      */
     public function toDateTime(): \DateTimeInterface
     {
-        $value = $this->value - (2 ** 31) + 1;
-
         /** @noinspection PhpUnhandledExceptionInspection */
-        return (new \DateTimeImmutable())->setDate(1970, 1, $value);
+        return (new \DateTimeImmutable())
+            ->setDate(1970, 1, $this->value + 1)
+            ->setTime(0, 0, 0)
+        ;
     }
 
     /**
@@ -68,15 +79,7 @@ final class Date implements Value
     {
         $buffer
             ->appendInt(4)
-            ->appendUint($this->value)
+            ->appendUint($this->value + (2 ** 31))
         ;
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public static function read(Buffer $buffer): self
-    {
-        return new self($buffer->consumeUint());
     }
 }

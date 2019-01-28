@@ -10,28 +10,81 @@
 
 namespace PHPinnacle\Cassis\Type;
 
+use PHPinnacle\Cassis\Buffer;
+use PHPinnacle\Cassis\Exception;
 use PHPinnacle\Cassis\Type;
+use PHPinnacle\Cassis\Value;
+use Ramsey\Uuid\Uuid;
 
 final class Base implements Type
 {
     /**
      * @var int
      */
-    private $type;
+    private $code;
 
     /**
-     * @param int $type
+     * @param int $code
      */
-    public function __construct(int $type)
+    public function __construct(int $code)
     {
-        $this->type = $type;
+        $this->code = $code;
     }
 
     /**
-     * @return int
+     * {@inheritdoc}
      */
-    public function code(): int
+    public function read(Buffer $buffer)
     {
-        return $this->type;
+        $length = $buffer->consumeInt();
+
+        if ($length < 0) {
+            return null;
+        }
+
+        switch ($this->code) {
+            case Type::ASCII:
+            case Type::VARCHAR:
+            case Type::TEXT:
+                return $buffer->consume($length);
+            case Type::BLOB:
+                return Value\Blob::fromArray($buffer->consumeBytes($length));
+            case Type::BOOLEAN:
+                return (bool) $buffer->consumeByte();
+            case Type::TINYINT:
+                return $buffer->consumeTinyInt();
+            case Type::SMALLINT:
+                return $buffer->consumeSmallInt();
+            case Type::INT:
+                return $buffer->consumeInt();
+            case Type::BIGINT:
+                return $buffer->consumeLong();
+            case Type::VARINT:
+                return Value\Varint::fromBytes($buffer->consume($length));
+            case Type::FLOAT:
+                return $buffer->consumeFloat();
+            case Type::DOUBLE:
+                return $buffer->consumeDouble();
+            case Type::DECIMAL:
+                $scale = $buffer->consumeUint();
+                $bytes = $buffer->consume($length - 4);
+
+                return Value\Decimal::fromBytes($bytes, $scale);
+            case Type::TIMESTAMP:
+                return Value\Timestamp::fromMicroSeconds($buffer->consumeLong());
+            case Type::DATE:
+                return Value\Date::fromSeconds($buffer->consumeUint());
+            case Type::TIME:
+                return Value\Time::fromNanoSeconds($buffer->consumeLong());
+            case Type::UUID:
+            case Type::TIMEUUID:
+                return Uuid::fromBytes($buffer->consume(16));
+            case Type::INET:
+                return Value\Inet::fromBytes($buffer->consume($length));
+            case Type::COUNTER:
+                return new Value\Counter($buffer->consumeLong());
+            default:
+                throw Exception\ClientException::unknownType($this->code);
+        }
     }
 }

@@ -12,6 +12,7 @@ declare(strict_types = 1);
 
 namespace PHPinnacle\Cassis\Result;
 
+use PHPinnacle\Cassis\Buffer;
 use PHPinnacle\Cassis\Response;
 use PHPinnacle\Cassis\Result;
 
@@ -37,6 +38,6 @@ final class SetKeyspace implements Result
      */
     public static function create(Response\Result $frame): self
     {
-        return new self($frame->data->consumeString());
+        return new self((new Buffer($frame->data))->consumeString());
     }
 }
