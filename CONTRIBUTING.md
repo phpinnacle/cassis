@@ -7,7 +7,7 @@ We accept contributions via Pull Requests on [Github](https://github.com/phpinna
 
 ## Pull Requests
 
-- **[PSR-2 Coding Standard](https://github.com/php-fig/fig-standards/blob/master/accepted/PSR-2-coding-style-guide.md)** - Check the code style with ``$ composer check-style`` and fix it with ``$ composer fix-style``.
+- **Follow our coding standard.** - It mostly based on [PSR-2 Coding Standard](https://github.com/php-fig/fig-standards/blob/master/accepted/PSR-2-coding-style-guide.md).
 
 - **Add tests!** - Your patch won't be accepted if it does not have tests.
 
@@ -25,7 +25,7 @@ We accept contributions via Pull Requests on [Github](https://github.com/phpinna
 ## Running Tests
 
 ```bash
-$ composer test
+$ CASSIS_TEST_DSN=tcp://user:pass@localhost:9042 composer test
 ```
 
 

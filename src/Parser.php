@@ -137,7 +137,7 @@ final class Parser
             case Frame::OPCODE_AUTHENTICATE:
                 return new Response\Authenticate($this->frameBuffer->consumeString());
             case Frame::OPCODE_AUTH_SUCCESS:
-                return new Response\AuthSuccess;
+                return new Response\AuthSuccess($this->frameBuffer->consume($length));
             case Frame::OPCODE_RESULT:
                 return new Response\Result($this->frameBuffer->consumeInt(), $this->frameBuffer->consume($length - 4));
             case Frame::OPCODE_ERROR:

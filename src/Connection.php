@@ -13,19 +13,21 @@ declare(strict_types = 1);
 namespace PHPinnacle\Cassis;
 
 use function Amp\asyncCall, Amp\call;
-use function Amp\Socket\connect;
+use Amp\Socket\ClientTlsContext;
+use function Amp\Socket\connect, Amp\Socket\cryptoConnect;
 use Amp\Deferred;
 use Amp\Loop;
 use Amp\Promise;
 use Amp\Socket\ClientConnectContext;
 use Amp\Socket\Socket;
+use Amp\Uri\Uri;
 
 final class Connection
 {
     const WRITE_ROUNDS = 64;
 
     /**
-     * @var string
+     * @var Uri
      */
     private $uri;
 
@@ -75,11 +77,11 @@ final class Connection
     private $lastWrite = 0;
 
     /**
-     * @param string          $uri
-     * @param Streams         $streams
-     * @param Compressor      $compressor
+     * @param Uri        $uri
+     * @param Streams    $streams
+     * @param Compressor $compressor
      */
-    public function __construct(string $uri, Streams $streams, Compressor $compressor)
+    public function __construct(Uri $uri, Streams $streams, Compressor $compressor)
     {
         $this->uri     = $uri;
         $this->streams = $streams;
@@ -137,21 +139,29 @@ final class Connection
     public function open(int $timeout, int $attempts, bool $noDelay): Promise
     {
         return call(function () use ($timeout, $attempts, $noDelay) {
-            $context = new ClientConnectContext;
+            $clientContext = new ClientConnectContext;
 
             if ($attempts > 0) {
-                $context = $context->withMaxAttempts($attempts);
+                $clientContext = $clientContext->withMaxAttempts($attempts);
             }
 
             if ($timeout > 0) {
-                $context = $context->withConnectTimeout($timeout);
+                $clientContext = $clientContext->withConnectTimeout($timeout);
             }
 
             if ($noDelay) {
-                $context = $context->withTcpNoDelay();
+                $clientContext = $clientContext->withTcpNoDelay();
             }
 
-            $this->socket = yield connect($this->uri, $context);
+            $uri = \sprintf('tcp://%s:%d', $this->uri->getHost(), $this->uri->getPort());
+
+            if ($this->uri->getScheme() === 'tls') {
+                $cryptoContext = new ClientTlsContext;
+
+                $this->socket = yield cryptoConnect($uri, $clientContext, $cryptoContext);
+            } else {
+                $this->socket = yield connect($uri, $clientContext);
+            }
 
             $this->listen();
         });
@@ -210,7 +220,8 @@ final class Connection
                 $this->parser->append($chunk);
 
                 while ($frame = $this->parser->parse()) {
-                    if ($frame->stream === -1) {
+                    if ($frame->opcode === Frame::OPCODE_EVENT) {
+                        /** @var Response\Event $frame */
                         $this->emitter->emit($frame);
 
                         continue 2;

@@ -45,8 +45,11 @@ final class AuthResponse extends Request
     public function write(Buffer $buffer): void
     {
         $buffer
-            ->appendString($this->user)
-            ->appendString($this->password)
+            ->appendUint(\strlen($this->user) + \strlen($this->password) + 2)
+            ->appendByte(0)
+            ->append($this->user)
+            ->appendByte(0)
+            ->append($this->password)
         ;
     }
 }

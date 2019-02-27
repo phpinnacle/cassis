@@ -1,6 +1,7 @@
 <?php
 
 use Amp\Loop;
+use PHPinnacle\Cassis\Context;
 use PHPinnacle\Cassis\Session;
 use PHPinnacle\Cassis\Cluster;
 use PHPinnacle\Cassis\Value;
@@ -29,11 +30,12 @@ Loop::run(function () use ($argv) {
             yield $session->query($query);
         }
 
-        $time     = \microtime(true);
-        $count    = $argv[1] ?? 1000;
+        $toWrite = $argv[1] ?? 10000;
+        $toRead  = $argv[2] ?? 1000;
+
         $promises = [];
 
-        for ($i = 1; $i <= $count; $i++) {
+        for ($i = 1; $i <= $toWrite; $i++) {
             $author = new Value\UserDefined([
                 'id'      => $i,
                 'name'    => "User $i",
@@ -56,7 +58,27 @@ Loop::run(function () use ($argv) {
 
         yield $promises;
 
-        echo \sprintf("Done %d inserts in %f seconds.\n", $count, \microtime(true) - $time);
+        echo \sprintf("Done %d inserts. Start reading...\n", $toWrite);
+
+        $time     = \microtime(true);
+        $context  = (new Context)->limit($toRead);
+        $total    = 0;
+
+        /** @var \PHPinnacle\Cassis\Result\Rows $result */
+        while ($result = yield $session->query("SELECT * FROM posts_by_user;", [], $context)) {
+            $count = \count($result);
+            $total = $total + $count;
+
+            echo \sprintf("Read %d rows.\n", $count);
+
+            if (!$cursor = $result->cursor()) {
+                break;
+            }
+
+            $context->offset($cursor);
+        };
+
+        echo \sprintf("Read %d rows in %f seconds.\n", $total, \microtime(true) - $time);
     } catch (\Throwable $error) {
         echo "Got error: {$error->getMessage()}.\n";
     } finally {

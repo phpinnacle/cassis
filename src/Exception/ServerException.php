@@ -14,4 +14,8 @@ namespace PHPinnacle\Cassis\Exception;
 
 class ServerException extends CassisException
 {
+    public static function unexpectedFrame(int $code): self
+    {
+        return new self("Unexpected frame with opcode {$code}.");
+    }
 }

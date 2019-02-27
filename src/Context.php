@@ -172,7 +172,8 @@ final class Context
      */
     public function consistencySerial(): self
     {
-        $this->consistency = self::CONSISTENCY_SERIAL;
+        $this->flags |= self::FLAG_SERIAL_CONSISTENCY;
+        $this->serialConsistency = self::CONSISTENCY_SERIAL;
 
         return $this;
     }
@@ -182,7 +183,8 @@ final class Context
      */
     public function consistencyLocalSerial(): self
     {
-        $this->consistency = self::CONSISTENCY_LOCAL_SERIAL;
+        $this->flags |= self::FLAG_SERIAL_CONSISTENCY;
+        $this->serialConsistency = self::CONSISTENCY_LOCAL_SERIAL;
 
         return $this;
     }
@@ -229,19 +231,6 @@ final class Context
     {
         $this->flags |= self::FLAG_PAGING_STATE;
         $this->pagingState = $offset;
-
-        return $this;
-    }
-
-    /**
-     * @param int $consistency
-     *
-     * @return self
-     */
-    public function serialConsistency(int $consistency): self
-    {
-        $this->flags |= self::FLAG_SERIAL_CONSISTENCY;
-        $this->serialConsistency = $consistency;
 
         return $this;
     }

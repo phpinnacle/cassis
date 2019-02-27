@@ -67,7 +67,7 @@ class ContextTest extends CassisTest
         
         $context
             ->consistencyOne()
-            ->serialConsistency(Context::CONSISTENCY_LOCAL_SERIAL)
+            ->consistencyLocalSerial()
             ->defaultTimestamp($time = time())
             ->limit(1000)
             ->offset('state')

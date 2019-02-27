@@ -15,6 +15,7 @@ namespace PHPinnacle\Cassis;
 use function Amp\call;
 use Amp\Promise;
 use Amp\Socket;
+use Amp\Uri\Uri;
 
 final class Cluster
 {
@@ -157,7 +158,7 @@ final class Cluster
             $compressor = $this->detectCompressor();
 
             foreach ($this->config->hosts() as $host) {
-                $connection = new Connection($host, $this->streams, $compressor);
+                $connection = new Connection(new Uri($host), $this->streams, $compressor);
 
                 try {
                     yield $connection->open(
@@ -181,7 +182,26 @@ final class Cluster
      */
     private function authenticate(): Promise
     {
-        return $this->connection->send(new Request\AuthResponse($this->config->user(), $this->config->password()));
+        return call(function () {
+            $request = new Request\AuthResponse(
+                $this->config->user(),
+                $this->config->password()
+            );
+
+            /** @var Frame $frame */
+            $frame = yield $this->connection->send($request);
+
+            switch (true) {
+                case $frame instanceof Response\AuthChallenge:
+                    // TODO
+
+                    break;
+                case $frame instanceof Response\AuthSuccess:
+                    break;
+                default:
+                    throw Exception\ServerException::unexpectedFrame($frame->opcode);
+            }
+        });
     }
     
     /**

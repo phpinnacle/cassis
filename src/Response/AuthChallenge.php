@@ -14,20 +14,7 @@ namespace PHPinnacle\Cassis\Response;
 
 use PHPinnacle\Cassis\Response;
 
-final class AuthSuccess extends Response
+final class AuthChallenge extends Response
 {
-    public $opcode = self::OPCODE_AUTH_SUCCESS;
-
-    /**
-     * @var string
-     */
-    public $data;
-
-    /**
-     * @param string $data
-     */
-    public function __construct(string $data)
-    {
-        $this->data = $data;
-    }
+    public $opcode = self::OPCODE_AUTH_CHALLENGE;
 }

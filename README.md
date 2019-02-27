@@ -33,7 +33,7 @@ use PHPinnacle\Cassis\Statement;
 require __DIR__ . '/vendor/autoload.php';
 
 Loop::run(function () {
-    $cluster  = Cluster::build('tcp://admin:admin123@172.23.0.3');
+    $cluster = Cluster::build('tcp://localhost:9042');
     
     /** @var Session $session */
     $session = yield $cluster->connect('system');
@@ -60,13 +60,9 @@ CASSIS_EXAMPLE_DSN=tcp://user:pass@localhost:9042 php example/*
 Benchmarks were run as:
 
 ```bash
-
-CASSIS_BENCHMARK_DSN=tcp://user:pass@localhost:9042 php benchmark/simple.php N
+CASSIS_BENCHMARK_DSN=tcp://user:pass@localhost:9042 php benchmark/write.php N
+CASSIS_BENCHMARK_DSN=tcp://user:pass@localhost:9042 php benchmark/read.php N M
 ```
-
-## Change log
-
-Please see [CHANGELOG](CHANGELOG.md) for more information on what has changed recently.
 
 ## Testing
 
