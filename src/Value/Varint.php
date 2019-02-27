@@ -8,6 +8,10 @@
  * file that was distributed with this source code.
  */
 
+/**
+ * @noinspection PhpComposerExtensionStubsInspection
+ */
+
 declare(strict_types = 1);
 
 namespace PHPinnacle\Cassis\Value;
@@ -37,7 +41,7 @@ final class Varint implements Value
      */
     public static function fromString(string $value): self
     {
-        return new self(bigint_init($value));
+        return new self(\bigint_init($value));
     }
 
     /**
@@ -47,7 +51,7 @@ final class Varint implements Value
      */
     public static function fromBytes(string $bytes): self
     {
-        return new self(bigint_import($bytes));
+        return new self(\bigint_import($bytes));
     }
 
     /**
@@ -55,7 +59,7 @@ final class Varint implements Value
      */
     public function write(Buffer $buffer): void
     {
-        $binary = gmp_export($this->value);
+        $binary = \bigint_export($this->value);
 
         $buffer
             ->appendInt(\strlen($binary))
@@ -68,6 +72,6 @@ final class Varint implements Value
      */
     public function __toString(): string
     {
-        return \gmp_strval($this->value);
+        return \bigint_strval($this->value);
     }
 }

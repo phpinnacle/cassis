@@ -45,7 +45,7 @@ Loop::run(function () {
         printf("The keyspace %s has a table called %s\n", $row['keyspace_name'], $row['columnfamily_name']);
     }
 
-    yield $cluster->disconnect();
+    $session->close();
 });
 
 ```

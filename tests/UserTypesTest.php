@@ -43,7 +43,7 @@ class UserTypesTest extends AsyncTest
                 yield $session->query(\trim($query));
             }
 
-            yield $cluster->disconnect();
+            $session->close();
         });
     }
     
@@ -82,7 +82,7 @@ class UserTypesTest extends AsyncTest
         self::assertArrayHasKey('comment', $result);
         self::assertEquals($comment, $result['comment']);
 
-        yield $cluster->disconnect();
+        $session->close();
     }
 
     public static function tearDownAfterClass(): void
@@ -94,7 +94,7 @@ class UserTypesTest extends AsyncTest
 
             yield $session->query("DROP KEYSPACE simplex;");
 
-            yield $cluster->disconnect();
+            $session->close();
         });
     }
 }

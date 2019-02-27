@@ -54,17 +54,6 @@ final class Session
     }
 
     /**
-     * @param string   $event
-     * @param callable $listener
-     *
-     * @return Promise
-     */
-    public function register(string $event, callable $listener): Promise
-    {
-        return $this->connection->register($event, $listener);
-    }
-
-    /**
      * @param string  $cql
      * @param array   $values
      * @param Context $context
@@ -104,6 +93,7 @@ final class Session
     public function execute(Statement $statement, Context $context = null): Promise
     {
         return call(function () use ($statement, $context) {
+            /** @var Response\Result $response */
             $request  = $this->request($statement, $context ?: new Context);
             $response = yield $this->connection->send($request);
 
@@ -140,5 +130,13 @@ final class Session
             default:
                 throw new Exception\ClientException;
         }
+    }
+
+    /**
+     * @return void
+     */
+    public function close(): void
+    {
+        $this->connection->close();
     }
 }

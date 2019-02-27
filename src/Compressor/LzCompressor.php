@@ -21,6 +21,7 @@ class LzCompressor implements Compressor
      */
     public function compress(string $data): string
     {
+        /** @noinspection PhpUndefinedFunctionInspection */
         return lz4_compress($data);
     }
     
@@ -29,6 +30,7 @@ class LzCompressor implements Compressor
      */
     public function decompress(string $binary): string
     {
+        /** @noinspection PhpUndefinedFunctionInspection */
         return lz4_uncompress($binary);
     }
 }

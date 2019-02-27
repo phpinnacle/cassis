@@ -23,7 +23,7 @@ final class Rows implements Result, \Iterator, \Countable, \ArrayAccess
     /**
      * @var \SplFixedArray
      */
-    public $data;
+    private $data;
 
     /**
      * @var Metadata
@@ -34,7 +34,7 @@ final class Rows implements Result, \Iterator, \Countable, \ArrayAccess
      * @param \SplFixedArray $data
      * @param Metadata       $meta
      */
-    public function __construct(\SplFixedArray $data, Metadata $meta)
+    private function __construct(\SplFixedArray $data, Metadata $meta)
     {
         $this->data = $data;
         $this->meta = $meta;
@@ -144,14 +144,6 @@ final class Rows implements Result, \Iterator, \Countable, \ArrayAccess
     public function offsetUnset($offset)
     {
         throw new \BadMethodCallException('Rows result are immutable.');
-    }
-
-    /**
-     * @return Metadata
-     */
-    public function meta(): Metadata
-    {
-        return $this->meta;
     }
 
     /**

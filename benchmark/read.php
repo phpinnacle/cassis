@@ -21,8 +21,8 @@ Loop::run(function () use ($argv) {
     $session = yield $cluster->connect();
     $setup   = require __DIR__ . '/shared.php';
 
-    $watcher = Loop::onSignal(SIGTERM, function () use ($cluster) {
-        yield $cluster->disconnect();
+    $watcher = Loop::onSignal(SIGTERM, function () use ($session) {
+        $session->close();
     });
 
     try {
@@ -85,7 +85,7 @@ Loop::run(function () use ($argv) {
         yield $session->query("DROP KEYSPACE IF EXISTS blogs;");
     }
 
-    yield $cluster->disconnect();
+    $session->close();
 
     Loop::cancel($watcher);
 });

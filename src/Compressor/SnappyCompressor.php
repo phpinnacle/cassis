@@ -21,6 +21,7 @@ class SnappyCompressor implements Compressor
      */
     public function compress(string $data): string
     {
+        /** @noinspection PhpUndefinedFunctionInspection */
         return snappy_compress($data);
     }
     
@@ -29,6 +30,7 @@ class SnappyCompressor implements Compressor
      */
     public function decompress(string $binary): string
     {
+        /** @noinspection PhpUndefinedFunctionInspection */
         return snappy_uncompress($binary);
     }
 }

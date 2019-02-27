@@ -32,11 +32,11 @@ final class Streams
     private $stack;
 
     /**
-     * Closed constructor
+     * @param \SplStack $stack
      */
-    private function __construct()
+    private function __construct(\SplStack $stack)
     {
-        $this->stack = new \SplStack;
+        $this->stack = $stack;
     }
 
     /**
@@ -44,7 +44,7 @@ final class Streams
      */
     public static function instance(): self
     {
-        return self::$instance ?: self::$instance = new self;
+        return self::$instance ?: self::$instance = new self(new \SplStack);
     }
 
     /**

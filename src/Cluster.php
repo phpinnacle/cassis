@@ -22,8 +22,7 @@ final class Cluster
     private const
         STATE_NOT_CONNECTED = 0,
         STATE_CONNECTING    = 1,
-        STATE_CONNECTED     = 2,
-        STATE_DISCONNECTING = 3
+        STATE_CONNECTED     = 2
     ;
 
     /**
@@ -42,9 +41,9 @@ final class Cluster
     private $state = self::STATE_NOT_CONNECTED;
 
     /**
-     * @var Connection
+     * @var Events
      */
-    private $connection;
+    private $events;
 
     /**
      * @param Config $config
@@ -71,14 +70,29 @@ final class Cluster
     public function options(): Promise
     {
         return call(function () {
-            if ($this->connection === null) {
-                $this->connection = yield $this->open();
-            }
+            /** @var Connection $connection */
+            $connection = yield $this->open();
 
             /** @var Response\Supported $response */
-            $response = yield $this->connection->send(new Request\Options);
+            $response = yield $connection->send(new Request\Options);
+
+            $connection->close();
 
             return $response->options;
+        });
+    }
+
+    /**
+     * @return Promise<Events>
+     */
+    public function events(): Promise
+    {
+        return call(function () {
+            if ($this->events) {
+                return $this->events;
+            }
+
+            return $this->events = new Events(yield $this->startup());
         });
     }
 
@@ -96,17 +110,7 @@ final class Cluster
 
             $this->state = self::STATE_CONNECTING;
 
-            if (null === $this->connection) {
-                $this->connection = yield $this->open();
-            }
-
-            $frame = yield $this->connection->send(new Request\Startup($this->config->options()));
-
-            if ($frame instanceof Response\Authenticate) {
-                yield $this->authenticate();
-            }
-
-            $session = new Session($this->connection);
+            $session = new Session(yield $this->startup());
 
             if ($keyspace !== null) {
                 yield $session->keyspace($keyspace);
@@ -119,38 +123,27 @@ final class Cluster
     }
 
     /**
-     * @param int    $code
-     * @param string $reason
-     *
-     * @return Promise<void>
+     * @return Promise<Connection>
      */
-    public function disconnect(int $code = 0, string $reason = ''): Promise
+    private function startup()
     {
-        return call(function() use ($code, $reason) {
-            if ($this->state === self::STATE_DISCONNECTING) {
-                return;
+        return call(function () {
+            /** @var Connection $connection */
+            $connection = yield $this->open();
+
+            $request  = new Request\Startup($this->config->options());
+            $response = yield $connection->send($request);
+
+            if ($response instanceof Response\Authenticate) {
+                yield $this->authenticate($connection);
             }
 
-            $this->state = self::STATE_DISCONNECTING;
-
-            if ($this->connection !== null) {
-                $this->connection->close();
-            }
-
-            $this->state = self::STATE_NOT_CONNECTED;
+            return $connection;
         });
     }
 
     /**
-     * @return bool
-     */
-    public function isConnected(): bool
-    {
-        return $this->state === self::STATE_CONNECTED;
-    }
-
-    /**
-     * @return Promise
+     * @return Promise<Connection>
      */
     private function open(): Promise
     {
@@ -178,32 +171,25 @@ final class Cluster
     }
 
     /**
-     * @return Promise
+     * @param Connection $connection
+     *
+     * @return Promise<Response\AuthSuccess>
      */
-    private function authenticate(): Promise
+    private function authenticate(Connection $connection): Promise
     {
-        return call(function () {
-            $request = new Request\AuthResponse(
-                $this->config->user(),
-                $this->config->password()
-            );
-
-            /** @var Frame $frame */
-            $frame = yield $this->connection->send($request);
+        return call(function () use ($connection) {
+            $request  = new Request\AuthResponse($this->config->user(), $this->config->password());
+            $response = yield $connection->send($request);
 
             switch (true) {
-                case $frame instanceof Response\AuthChallenge:
-                    // TODO
-
-                    break;
-                case $frame instanceof Response\AuthSuccess:
-                    break;
+                case $response instanceof Response\AuthSuccess:
+                    return $response;
                 default:
-                    throw Exception\ServerException::unexpectedFrame($frame->opcode);
+                    throw Exception\ServerException::unexpectedFrame($response->opcode);
             }
         });
     }
-    
+
     /**
      * @return Compressor
      */

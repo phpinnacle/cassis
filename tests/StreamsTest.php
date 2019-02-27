@@ -14,6 +14,14 @@ use PHPinnacle\Cassis\Streams;
 
 class StreamsTest extends CassisTest
 {
+    public function setUp(): void
+    {
+        $prop = new \ReflectionProperty(Streams::class, 'instance');
+        $prop->setAccessible(true);
+        $prop->setValue(Streams::class, null);
+        $prop->setAccessible(false);
+    }
+
     public function testCreate()
     {
         $streams1 = Streams::instance();

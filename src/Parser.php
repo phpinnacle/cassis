@@ -81,7 +81,7 @@ final class Parser
 
         $type   = $this->readBuffer->readByte(0);
         $flags  = $this->readBuffer->readByte(1);
-        $stream = $this->readBuffer->readShort(2);
+        $stream = $this->readBuffer->readSmallInt(2);
         $opcode = $this->readBuffer->readByte(4);
         $length = $this->readBuffer->readInt(5);
 

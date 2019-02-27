@@ -37,7 +37,7 @@ class CollectionsTest extends AsyncTest
                 yield $session->query(\trim($query));
             }
 
-            yield $cluster->disconnect();
+            $session->close();
         });
     }
     
@@ -75,7 +75,7 @@ class CollectionsTest extends AsyncTest
         self::assertEquals($map->values(), $result['map_value']->values());
         self::assertEquals($map->keys(), $result['map_value']->keys());
 
-        yield $cluster->disconnect();
+        $session->close();
     }
 
     public static function tearDownAfterClass(): void
@@ -87,7 +87,7 @@ class CollectionsTest extends AsyncTest
 
             yield $session->query("DROP KEYSPACE simplex;");
 
-            yield $cluster->disconnect();
+            $session->close();
         });
     }
 }
