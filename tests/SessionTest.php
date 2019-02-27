@@ -30,7 +30,7 @@ class SessionTest extends AsyncTest
                  WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1 };"
             );
 
-            yield $cluster->disconnect();
+            $session->close();
         });
     }
 
@@ -49,7 +49,7 @@ class SessionTest extends AsyncTest
 
         yield $session->query("DROP KEYSPACE simplex_2;");
 
-        yield $cluster->disconnect();
+        $session->close();
     }
 
     public function testSimpleQueries()
@@ -82,7 +82,7 @@ class SessionTest extends AsyncTest
         self::assertEquals(3, $rows[2]['id']);
         self::assertEquals(true, $rows[2]['enabled']);
 
-        yield $cluster->disconnect();
+        $session->close();
     }
 
     public function testPaging()
@@ -125,7 +125,7 @@ class SessionTest extends AsyncTest
         self::assertEquals(5, $rows2[1]['ordering']);
         self::assertNull($rows2->cursor());
 
-        yield $cluster->disconnect();
+        $session->close();
     }
 
     public function testPreparedQueries()
@@ -154,7 +154,7 @@ class SessionTest extends AsyncTest
         self::assertEquals(2, $rows[1]['id']);
         self::assertEquals(false, $rows[1]['enabled']);
 
-        yield $cluster->disconnect();
+        $session->close();
     }
 //
 //    public function testBatchQueries()
@@ -187,27 +187,6 @@ class SessionTest extends AsyncTest
 //            yield $cluster->disconnect();
 //        });
 //    }
-//
-//    public function testRegisterEvent()
-//    {
-//        self::loop(function () {
-//            $cluster = self::cluster();
-//            /** @var Session $session */
-//            $session = yield $cluster->connect('simplex');
-//
-//            yield $session->query(
-//                "CREATE TABLE simple (id int PRIMARY KEY, enabled boolean);"
-//            );
-//
-//            yield $session->register(Event::SCHEMA_CHANGE, function (Event $event) use ($cluster) {
-//                var_dump($event);
-//            });
-//
-//            yield $session->query('ALTER TABLE simple ADD name text;');
-//
-//            yield $cluster->disconnect();
-//        });
-//    }
 
     public static function tearDownAfterClass(): void
     {
@@ -218,7 +197,7 @@ class SessionTest extends AsyncTest
 
             yield $session->query("DROP KEYSPACE IF EXISTS simplex;");
 
-            yield $cluster->disconnect();
+            $session->close();
         });
     }
 }

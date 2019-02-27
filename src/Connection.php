@@ -13,12 +13,12 @@ declare(strict_types = 1);
 namespace PHPinnacle\Cassis;
 
 use function Amp\asyncCall, Amp\call;
-use Amp\Socket\ClientTlsContext;
 use function Amp\Socket\connect, Amp\Socket\cryptoConnect;
 use Amp\Deferred;
 use Amp\Loop;
 use Amp\Promise;
 use Amp\Socket\ClientConnectContext;
+use Amp\Socket\ClientTlsContext;
 use Amp\Socket\Socket;
 use Amp\Uri\Uri;
 
@@ -47,11 +47,6 @@ final class Connection
     private $parser;
 
     /**
-     * @var EventEmitter
-     */
-    private $emitter;
-
-    /**
      * @var \SplQueue
      */
     private $queue;
@@ -67,9 +62,9 @@ final class Connection
     private $processing = false;
 
     /**
-     * @var Deferred[]
+     * @var callable[]
      */
-    private $defers = [];
+    private $callbacks = [];
 
     /**
      * @var int
@@ -87,19 +82,7 @@ final class Connection
         $this->streams = $streams;
         $this->packer  = new Packer($compressor);
         $this->parser  = new Parser($compressor);
-        $this->emitter = new EventEmitter($this);
         $this->queue   = new \SplQueue;
-    }
-
-    /**
-     * @param string   $event
-     * @param callable $listener
-     *
-     * @return Promise
-     */
-    public function register(string $event, callable $listener): Promise
-    {
-        return $this->emitter->register($event, $listener);
     }
 
     /**
@@ -114,7 +97,16 @@ final class Connection
         $stream   = $this->streams->reserve();
         $deferred = new Deferred;
 
-        $this->defers[$stream] = $deferred;
+        $this->subscribe($stream, function (Frame $frame) use ($deferred) {
+            if ($frame->opcode === Frame::OPCODE_ERROR) {
+                /** @var Response\Error $frame */
+                $deferred->fail($frame->exception);
+            } else {
+                $deferred->resolve($frame);
+            }
+
+            $this->streams->release($frame->stream);
+        });
 
         $this->queue->enqueue($this->packer->pack($request, $stream));
 
@@ -130,11 +122,22 @@ final class Connection
     }
 
     /**
+     * @param int      $stream
+     * @param callable $handler
+     *
+     * @return void
+     */
+    public function subscribe(int $stream, callable $handler): void
+    {
+        $this->callbacks[$stream] = $handler;
+    }
+
+    /**
      * @param int  $timeout
      * @param int  $attempts
      * @param bool $noDelay
      *
-     * @return Promise
+     * @return Promise<self>
      */
     public function open(int $timeout, int $attempts, bool $noDelay): Promise
     {
@@ -164,6 +167,8 @@ final class Connection
             }
 
             $this->listen();
+
+            return $this;
         });
     }
 
@@ -176,7 +181,7 @@ final class Connection
             $this->socket->close();
         }
 
-        $this->defers = [];
+        $this->callbacks = [];
     }
     
     /**
@@ -185,15 +190,15 @@ final class Connection
     private function write(): void
     {
         asyncCall(function () {
-            $processed = 0;
+            $done = 0;
             $data = '';
 
             while ($this->queue->isEmpty() === false) {
                 $data .= $this->queue->dequeue();
 
-                ++$processed;
+                ++$done;
 
-                if ($processed % self::WRITE_ROUNDS === 0) {
+                if ($done % self::WRITE_ROUNDS === 0) {
                     Loop::defer(function () {
                         $this->write();
                     });
@@ -204,8 +209,7 @@ final class Connection
 
             yield $this->socket->write($data);
 
-            $this->lastWrite = Loop::now();
-
+            $this->lastWrite  = Loop::now();
             $this->processing = false;
         });
     }
@@ -220,28 +224,13 @@ final class Connection
                 $this->parser->append($chunk);
 
                 while ($frame = $this->parser->parse()) {
-                    if ($frame->opcode === Frame::OPCODE_EVENT) {
-                        /** @var Response\Event $frame */
-                        $this->emitter->emit($frame);
-
+                    if (!isset($this->callbacks[$frame->stream])) {
                         continue 2;
                     }
 
-                    if (!isset($this->defers[$frame->stream])) {
-                        continue 2;
-                    }
+                    asyncCall($this->callbacks[$frame->stream], $frame);
 
-                    $deferred = $this->defers[$frame->stream];
-                    unset($this->defers[$frame->stream]);
-
-                    $this->streams->release($frame->stream);
-
-                    if ($frame->opcode === Frame::OPCODE_ERROR) {
-                        /** @var Response\Error $frame */
-                        $deferred->fail($frame->exception);
-                    } else {
-                        $deferred->resolve($frame);
-                    }
+                    unset($this->callbacks[$frame->stream]);
                 }
             }
 

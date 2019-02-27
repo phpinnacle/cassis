@@ -59,7 +59,7 @@ class TypesTest extends AsyncTest
                 yield $session->query(\trim($query));
             }
 
-            yield $cluster->disconnect();
+            $session->close();
         });
     }
     
@@ -116,7 +116,7 @@ class TypesTest extends AsyncTest
         self::assertEquals('200.199.198.197', (string) $result['inet_value']);
         self::assertEquals('0x3078303030303030', $result['blob_value']->bytes());
 
-        yield $cluster->disconnect();
+        $session->close();
     }
 
     public static function tearDownAfterClass(): void
@@ -128,7 +128,7 @@ class TypesTest extends AsyncTest
 
             yield $session->query("DROP KEYSPACE simplex;");
 
-            yield $cluster->disconnect();
+            $session->close();
         });
     }
 }

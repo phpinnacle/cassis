@@ -30,7 +30,7 @@ class ClusterTest extends AsyncTest
                  WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1 };"
             );
 
-            yield $cluster->disconnect();
+            $session->close();
         });
     }
 
@@ -55,8 +55,6 @@ class ClusterTest extends AsyncTest
         foreach ($options as $option => $values) {
             self::assertIsArray($values);
         }
-
-        yield $cluster->disconnect();
     }
 
     public function testConnect()
@@ -65,19 +63,19 @@ class ClusterTest extends AsyncTest
         $promise = $cluster->connect();
 
         self::assertPromise($promise);
-        self::assertFalse($cluster->isConnected());
 
+        /** @var Session $session */
         $session = yield $promise;
 
         self::assertInstanceOf(Session::class, $session);
-        self::assertTrue($cluster->isConnected());
 
-        yield $cluster->disconnect();
+        $session->close();
     }
 
     public function testConnectWithKeyspace()
     {
         $cluster = self::cluster();
+        /** @var Session $session */
         $session = yield $cluster->connect('simplex');
 
         $ref = new \ReflectionProperty(Session::class, 'keyspace');
@@ -85,33 +83,7 @@ class ClusterTest extends AsyncTest
 
         self::assertSame('simplex', $ref->getValue($session));
 
-        yield $cluster->disconnect();
-    }
-
-    public function testDisconnectTwice()
-    {
-        $cluster = self::cluster();
-
-        yield $cluster->connect();
-
-        yield $cluster->disconnect();
-        yield $cluster->disconnect();
-
-        self::assertFalse($cluster->isConnected());
-    }
-
-    public function testConnectTwice()
-    {
-        $this->expectException(ClientException::class);
-
-        try {
-            $cluster = self::cluster();
-
-            yield $cluster->connect();
-            yield $cluster->connect();
-        } finally {
-            yield $cluster->disconnect();
-        }
+        $session->close();
     }
 
     public function testConnectWithUnknownKeyspace()
@@ -127,7 +99,7 @@ class ClusterTest extends AsyncTest
     {
         $this->expectException(ClientException::class);
 
-        $cluster = cluster::build('tcp://localhost:19042');
+        $cluster = Cluster::build('tcp://localhost:19042');
 
         yield $cluster->connect();
     }
@@ -141,7 +113,7 @@ class ClusterTest extends AsyncTest
 
             yield $session->query("DROP KEYSPACE IF EXISTS simplex;");
 
-            yield $cluster->disconnect();
+            $session->close();
         });
     }
 }

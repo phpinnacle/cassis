@@ -8,6 +8,10 @@
  * file that was distributed with this source code.
  */
 
+/**
+ * @noinspection PhpComposerExtensionStubsInspection
+ */
+
 declare(strict_types = 1);
 
 namespace PHPinnacle\Cassis\Value;
@@ -45,7 +49,7 @@ final class Decimal implements Value
      */
     public static function fromString(string $value, int $scale): self
     {
-        return new self(bigint_init($value), $scale);
+        return new self(\bigint_init($value), $scale);
     }
 
     /**
@@ -56,7 +60,7 @@ final class Decimal implements Value
      */
     public static function fromBytes(string $bytes, int $scale): self
     {
-        return new self(bigint_import($bytes), $scale);
+        return new self(\bigint_import($bytes), $scale);
     }
 
     /**
@@ -64,7 +68,7 @@ final class Decimal implements Value
      */
     public function value(): string
     {
-        return \gmp_strval($this->value);
+        return \bigint_strval($this->value);
     }
     
     /**
@@ -80,7 +84,7 @@ final class Decimal implements Value
      */
     public function write(Buffer $buffer): void
     {
-        $binary = \gmp_export($this->value);
+        $binary = \bigint_export($this->value);
 
         $buffer
             ->appendInt(4 + \strlen($binary))
@@ -95,7 +99,7 @@ final class Decimal implements Value
     public function __toString(): string
     {
         $sign   = '';
-        $value  = \gmp_strval($this->value);
+        $value  = \bigint_strval($this->value);
         $length = \strlen($value);
 
         if ($value[0] === '-') {

@@ -1,4 +1,16 @@
 <?php
+/**
+ * This file is part of PHPinnacle/Cassis.
+ *
+ * (c) PHPinnacle Team <dev@phpinnacle.com>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
+/**
+ * @noinspection PhpComposerExtensionStubsInspection
+ */
 
 if (!\function_exists('is_assoc')) {
     function is_assoc(array $values): bool
@@ -12,6 +24,7 @@ if (!\function_exists('bigint_init')) {
     {
         \error_clear_last();
 
+        /** @var \GMP $gmp */
         $gmp = @\gmp_init($value);
 
         if ($error = \error_get_last()) {
@@ -19,6 +32,13 @@ if (!\function_exists('bigint_init')) {
         }
 
         return $gmp;
+    }
+}
+
+if (!\function_exists('bigint_strval')) {
+    function bigint_strval(\GMP $gmp): string
+    {
+        return \gmp_strval($gmp);
     }
 }
 
@@ -34,5 +54,12 @@ if (!\function_exists('bigint_import')) {
         }
 
         return $gmp;
+    }
+}
+
+if (!\function_exists('bigint_export')) {
+    function bigint_export(\GMP $gmp): string
+    {
+        return \gmp_export($gmp);
     }
 }
