@@ -12,13 +12,13 @@ declare(strict_types = 1);
 
 namespace PHPinnacle\Cassis;
 
-use PHPinnacle\Buffer\Binary;
+use PHPinnacle\Buffer\ByteBuffer;
 use Ramsey\Uuid\UuidInterface;
 
 final class Buffer
 {
     /**
-     * @var Binary
+     * @var ByteBuffer
      */
     private $data;
 
@@ -27,7 +27,7 @@ final class Buffer
      */
     public function __construct(string $initial = '')
     {
-        $this->data = new Binary($initial);
+        $this->data = new ByteBuffer($initial);
     }
 
     /**

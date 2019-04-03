@@ -72,6 +72,7 @@ class SessionTest extends AsyncTest
         self::assertNull($result3);
 
         $rows = yield $session->query("SELECT * FROM simple");
+        $rows = iterator_to_array($rows);
 
         self::assertCount(3, $rows);
 
@@ -109,20 +110,22 @@ class SessionTest extends AsyncTest
 
         /** @var Result\Rows $rows1 */
         $rows1 = yield $session->query("SELECT * FROM paging", [], $context);
+        $data1 = iterator_to_array($rows1);
 
-        self::assertCount(3, $rows1);
-        self::assertEquals(1, $rows1[0]['ordering']);
-        self::assertEquals(2, $rows1[1]['ordering']);
-        self::assertEquals(3, $rows1[2]['ordering']);
+        self::assertCount(3, $data1);
+        self::assertEquals(1, $data1[0]['ordering']);
+        self::assertEquals(2, $data1[1]['ordering']);
+        self::assertEquals(3, $data1[2]['ordering']);
 
         $context->offset($rows1->cursor());
 
         /** @var Result\Rows $rows2 */
         $rows2 = yield $session->query("SELECT * FROM paging", [], $context);
+        $data2 = iterator_to_array($rows2);
 
-        self::assertCount(2, $rows2);
-        self::assertEquals(4, $rows2[0]['ordering']);
-        self::assertEquals(5, $rows2[1]['ordering']);
+        self::assertCount(2, $data2);
+        self::assertEquals(4, $data2[0]['ordering']);
+        self::assertEquals(5, $data2[1]['ordering']);
         self::assertNull($rows2->cursor());
 
         $session->close();
@@ -146,6 +149,7 @@ class SessionTest extends AsyncTest
         self::assertNull($result2);
 
         $rows = yield $session->query("SELECT * FROM prepared");
+        $rows = iterator_to_array($rows);
 
         self::assertCount(2, $rows);
 

@@ -18,10 +18,10 @@ use PHPinnacle\Cassis\Metadata;
 use PHPinnacle\Cassis\Response;
 use PHPinnacle\Cassis\Result;
 
-final class Rows implements Result, \Iterator, \Countable, \ArrayAccess
+final class Rows implements Result, \Iterator, \Countable
 {
     /**
-     * @var \SplFixedArray
+     * @var Buffer
      */
     private $data;
 
@@ -29,15 +29,32 @@ final class Rows implements Result, \Iterator, \Countable, \ArrayAccess
      * @var Metadata
      */
     private $meta;
-    
+
     /**
-     * @param \SplFixedArray $data
-     * @param Metadata       $meta
+     * @var int
      */
-    private function __construct(\SplFixedArray $data, Metadata $meta)
+    private $count;
+
+    /**
+     * @var int
+     */
+    private $index = 0;
+
+    /**
+     * @var array
+     */
+    private $rows = [];
+
+    /**
+     * @param Buffer   $data
+     * @param Metadata $meta
+     * @param int      $count
+     */
+    private function __construct(Buffer $data, Metadata $meta, int $count)
     {
-        $this->data = $data;
-        $this->meta = $meta;
+        $this->data  = $data;
+        $this->meta  = $meta;
+        $this->count = $count;
     }
 
     /**
@@ -49,21 +66,9 @@ final class Rows implements Result, \Iterator, \Countable, \ArrayAccess
     {
         $buffer = new Buffer($frame->data);
         $meta   = Metadata::create($buffer);
+        $count  = $buffer->consumeInt();
 
-        $count = $buffer->consumeInt();
-        $rows  = new \SplFixedArray($count);
-
-        for ($i = 0; $i < $count; ++$i) {
-            $data = [];
-
-            foreach ($meta->columns() as $column) {
-                $data[$column->name()] = $column->value($buffer);
-            }
-
-            $rows[$i] = $data;
-        }
-
-        return new self($rows, $meta);
+        return new self($buffer, $meta, $count);
     }
 
     /**
@@ -71,7 +76,13 @@ final class Rows implements Result, \Iterator, \Countable, \ArrayAccess
      */
     public function current()
     {
-        return $this->data->current();
+        if (!isset($this->rows[$this->index])) {
+            foreach ($this->meta->columns() as $column) {
+                $this->rows[$this->index][$column->name()] = $column->value($this->data);
+            }
+        }
+
+        return $this->rows[$this->index];
     }
 
     /**
@@ -79,7 +90,7 @@ final class Rows implements Result, \Iterator, \Countable, \ArrayAccess
      */
     public function next()
     {
-        $this->data->next();
+        ++$this->index;
     }
 
     /**
@@ -87,7 +98,7 @@ final class Rows implements Result, \Iterator, \Countable, \ArrayAccess
      */
     public function key()
     {
-        return $this->data->key();
+        return $this->index;
     }
 
     /**
@@ -95,7 +106,7 @@ final class Rows implements Result, \Iterator, \Countable, \ArrayAccess
      */
     public function valid()
     {
-        return $this->data->valid();
+        return $this->index < $this->count;
     }
 
     /**
@@ -103,7 +114,7 @@ final class Rows implements Result, \Iterator, \Countable, \ArrayAccess
      */
     public function rewind()
     {
-        $this->data->rewind();
+        $this->index = 0;
     }
 
     /**
@@ -111,39 +122,7 @@ final class Rows implements Result, \Iterator, \Countable, \ArrayAccess
      */
     public function count()
     {
-        return $this->data->count();
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function offsetExists($offset)
-    {
-        return $this->data->offsetExists($offset);
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function offsetGet($offset)
-    {
-        return $this->data->offsetGet($offset);
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function offsetSet($offset, $value)
-    {
-        throw new \BadMethodCallException('Rows result are immutable.');
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function offsetUnset($offset)
-    {
-        throw new \BadMethodCallException('Rows result are immutable.');
+        return $this->count;
     }
 
     /**

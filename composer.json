@@ -19,9 +19,10 @@
         "php": "^7.2",
         "amphp/amp": "^2.0",
         "amphp/socket": "^0.10",
-        "phpinnacle/buffer": "^0.1"
+        "phpinnacle/buffer": "^1.0"
     },
     "require-dev": {
+        "phpbench/phpbench": "^0.16",
         "phpunit/phpunit": "^8.0",
         "ramsey/uuid": "^3.8"
     },
@@ -41,11 +42,13 @@
     },
     "autoload-dev": {
         "psr-4": {
-            "PHPinnacle\\Cassis\\Tests\\": "tests"
+            "PHPinnacle\\Cassis\\Tests\\": "tests",
+            "PHPinnacle\\Cassis\\Benchmarks\\": "benchmarks"
         }
     },
     "scripts": {
-        "test": "phpunit"
+        "test": "phpunit",
+        "bench": "phpbench run benchmarks --report=aggregate"
     },
     "extra": {
         "branch-alias": {
