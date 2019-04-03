@@ -13,7 +13,7 @@
          stopOnFailure="false">
     <php>
         <ini name="error_reporting" value="-1"/>
-        <env name="CASSIS_TEST_DSN" value="tcp://localhost:9042"/>
+        <env name="CASSIS_TEST_DSN" value="tcp://cassandra:cassandra@localhost:9042"/>
     </php>
     <testsuites>
         <testsuite name="PHPinnacle Test Suite">

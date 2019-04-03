@@ -11,6 +11,7 @@
 namespace PHPinnacle\Cassis\Tests;
 
 use Amp\Loop;
+use PHPinnacle\Cassis\Result\Rows;
 use PHPinnacle\Cassis\Session;
 use PHPinnacle\Cassis\Value\Collection;
 
@@ -65,8 +66,9 @@ class CollectionsTest extends AsyncTest
 
         self::assertNull($result);
 
+        /** @var Rows $rows */
         $rows   = yield $session->query("SELECT * FROM collections");
-        $result = $rows[0];
+        $result = $rows->current();
 
         self::assertEquals($list->values(), $result['list_value']->values());
         self::assertEquals($list->keys(), $result['list_value']->keys());

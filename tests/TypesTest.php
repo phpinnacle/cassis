@@ -11,6 +11,7 @@
 namespace PHPinnacle\Cassis\Tests;
 
 use Amp\Loop;
+use PHPinnacle\Cassis\Result\Rows;
 use PHPinnacle\Cassis\Session;
 use PHPinnacle\Cassis\Value\Blob;
 use PHPinnacle\Cassis\Value\Date;
@@ -96,8 +97,9 @@ class TypesTest extends AsyncTest
 
         self::assertNull($result);
 
+        /** @var Rows $rows */
         $rows   = yield $session->query("SELECT * FROM values");
-        $result = $rows[0];
+        $result = $rows->current();
 
         self::assertEquals(true, $result['boolean_value']);
         self::assertEquals(127, $result['tinyint_value']);

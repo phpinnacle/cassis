@@ -11,6 +11,7 @@
 namespace PHPinnacle\Cassis\Tests;
 
 use Amp\Loop;
+use PHPinnacle\Cassis\Result\Rows;
 use PHPinnacle\Cassis\Session;
 use PHPinnacle\Cassis\Value;
 
@@ -75,8 +76,9 @@ class UserTypesTest extends AsyncTest
 
         self::assertNull($result);
 
+        /** @var Rows $rows */
         $rows   = yield $session->query("SELECT * FROM comments");
-        $result = $rows[0];
+        $result = $rows->current();
 
         self::assertIsArray($result);
         self::assertArrayHasKey('comment', $result);
