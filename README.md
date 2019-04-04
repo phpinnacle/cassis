@@ -9,9 +9,6 @@
 This library is a pure asynchronous PHP implementation of the Cassandra V4 binary protocol.
 It utilize [amphp](https://amphp.org) framework for async operations.
 
-## UNDER DEVELOPMENT
-## NOT READY FOR PRODUCTION
-
 ## Install
 
 Via Composer
@@ -51,23 +48,21 @@ Loop::run(function () {
 ```
 
 More examples can be found in [`examples`](examples) directory. Run it with:
+
 ```bash
 CASSIS_EXAMPLE_DSN=tcp://user:pass@localhost:9042 php example/*
-```
-
-## Benchmark
-
-Benchmarks were run as:
-
-```bash
-CASSIS_BENCHMARK_DSN=tcp://user:pass@localhost:9042 php benchmark/write.php N
-CASSIS_BENCHMARK_DSN=tcp://user:pass@localhost:9042 php benchmark/read.php N M
 ```
 
 ## Testing
 
 ```bash
-$ CASSIS_TEST_DSN=tcp://user:pass@localhost:9042 composer test
+CASSIS_TEST_DSN=tcp://user:pass@localhost:9042 composer test
+```
+
+## Benchmarks
+
+```bash
+CASSIS_BENCHMARK_DSN=tcp://user:pass@localhost:9042 composer bench
 ```
 
 ## Contributing
